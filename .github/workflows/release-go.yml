@@ -1,0 +1,58 @@
+name: Release Go
+
+# Go modules are installed straight from this repository by tag, so a
+# release is the tag go/vX.Y.Z on a commit that passes the tests.
+# Starts only when you run it from the Actions tab, on main. A version that's
+# already tagged is skipped, so bump the version to release.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-go
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      tags: ${{ steps.version.outputs.tags }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go/go.mod
+          cache: false
+      - run: go test -race -count=1 ./... && go vet ./...
+        working-directory: go
+      - id: version
+        run: echo "tags=go/v$(sed -nE 's/^const Version = "(.*)"/\1/p' go/version.go)" >> "$GITHUB_OUTPUT"
+
+  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  tag:
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: true
+      - name: Tag the release
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+        run: |
+          for tag in $TAGS; do
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+              echo "$tag already exists"
+            else
+              git tag "$tag" "$GITHUB_SHA"
+              git push origin "$tag"
+            fi
+          done

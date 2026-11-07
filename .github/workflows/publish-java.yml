@@ -1,0 +1,96 @@
+name: Publish Java
+
+# Publishes dev.flagbearer:flagbearer to Maven Central. Maven Central has no
+# trusted publishing, so this uses a Central Portal token and a GPG signing key
+# stored as secrets in the maven-central environment.
+# Starts only when you run it from the Actions tab, on main. A version that's
+# already published is skipped, so bump the version to release.
+# Maven Central versions can never be replaced or deleted.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-java
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      tags: ${{ steps.version.outputs.tags }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: ./gradlew test --no-daemon
+        working-directory: java
+      - id: version
+        run: |
+          version=$(sed -nE 's/^version = "(.*)"/\1/p' java/build.gradle.kts)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tags=java-v$version" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: maven-central
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Skip a version that's already published
+        id: exists
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/dev/flagbearer/flagbearer/$VERSION/flagbearer-$VERSION.pom")
+          echo "published=$([ "$code" = 200 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - run: ./gradlew publishToMavenCentral --no-daemon --no-configuration-cache
+        if: steps.exists.outputs.published == 'false'
+        working-directory: java
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+
+  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  tag:
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: true
+      - name: Tag the release
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+        run: |
+          for tag in $TAGS; do
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+              echo "$tag already exists"
+            else
+              git tag "$tag" "$GITHUB_SHA"
+              git push origin "$tag"
+            fi
+          done

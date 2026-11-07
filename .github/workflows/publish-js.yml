@@ -1,0 +1,96 @@
+name: Publish JS
+
+# Publishes @flagbearer/node and @flagbearer/web to npm through trusted
+# publishing, so no npm token is stored here.
+# Starts only when you run it from the Actions tab, on main. A version that's
+# already published is skipped, so bump the version to release.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-js
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      tags: ${{ steps.version.outputs.tags }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.13.0
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run typecheck
+      - run: bun run test
+      - run: scripts/verify-js-packages.sh "$RUNNER_TEMP/js-packages"
+      - id: version
+        run: echo "tags=node-v$(jq -r .version js/node/package.json) web-v$(jq -r .version js/web/package.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: js-packages
+          path: ${{ runner.temp }}/js-packages/*.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.13.0
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: js-packages
+          path: ${{ runner.temp }}/js-packages
+      - name: Publish to npm
+        run: |
+          for package in "$RUNNER_TEMP"/js-packages/*.tgz; do
+            spec=$(tar -xOzf "$package" package/package.json | node -p 'const p = JSON.parse(require("fs").readFileSync(0)); p.name + "@" + p.version')
+            if npm view "$spec" version >/dev/null 2>&1; then
+              echo "Skipping $spec: already published"
+              continue
+            fi
+            npm publish "$package" --access public
+          done
+
+  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  tag:
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: true
+      - name: Tag the release
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+        run: |
+          for tag in $TAGS; do
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+              echo "$tag already exists"
+            else
+              git tag "$tag" "$GITHUB_SHA"
+              git push origin "$tag"
+            fi
+          done

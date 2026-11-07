@@ -1,5 +1,9 @@
+import com.vanniktech.maven.publish.JavaLibrary
+import com.vanniktech.maven.publish.JavadocJar
+
 plugins {
     `java-library`
+    id("com.vanniktech.maven.publish") version "0.37.0"
 }
 
 group = "dev.flagbearer"
@@ -9,9 +13,38 @@ repositories {
     mavenCentral()
 }
 
-java {
-    withSourcesJar()
-    withJavadocJar()
+// Maven Central needs sources, javadoc, full metadata and signatures. Signing
+// switches on only when CI provides the key, so local builds don't need one.
+mavenPublishing {
+    configure(JavaLibrary(javadocJar = JavadocJar.Javadoc(), sourcesJar = true))
+    publishToMavenCentral(automaticRelease = true)
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
+    }
+    coordinates("dev.flagbearer", "flagbearer", version.toString())
+    pom {
+        name = "Flagbearer"
+        description = "The Flagbearer server SDK for Java and Kotlin."
+        url = "https://docs.flagbearer.dev/sdks/java"
+        licenses {
+            license {
+                name = "MIT License"
+                url = "https://opensource.org/licenses/MIT"
+            }
+        }
+        developers {
+            developer {
+                id = "flagbearer"
+                name = "Flagbearer"
+                url = "https://flagbearer.dev"
+            }
+        }
+        scm {
+            url = "https://github.com/flagbearer-dev/sdks"
+            connection = "scm:git:https://github.com/flagbearer-dev/sdks.git"
+            developerConnection = "scm:git:ssh://git@github.com/flagbearer-dev/sdks.git"
+        }
+    }
 }
 
 tasks.withType<JavaCompile>().configureEach {

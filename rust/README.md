@@ -28,12 +28,14 @@ which every server SDK also runs. Flagbearer's integration tests run this SDK ag
 
 Releases go to [crates.io](https://crates.io/crates/flagbearer), where versions
 can't be replaced once published. Bump `version` in `Cargo.toml`, merge, then
-from this directory:
+run the **Publish Rust** workflow from the Actions tab. It publishes through
+trusted publishing and tags the commit `rust-vX.Y.Z`.
+
+crates.io only allows trusted publishing once a crate exists, so the first
+release is published by hand, from this directory, with an API token from
+crates.io:
 
 ```sh
 cargo publish --dry-run
 cargo publish
 ```
-
-crates.io supports trusted publishing from GitHub Actions, so a release
-workflow needs no stored token once the crate exists.

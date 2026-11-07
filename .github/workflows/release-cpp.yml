@@ -1,0 +1,67 @@
+name: Release C++
+
+# C++ projects install the SDK from a tag with CMake's FetchContent, so a
+# release is the tag cpp-vX.Y.Z on a commit that passes the tests.
+# Starts only when you run it from the Actions tab, on main. A version that's
+# already tagged is skipped, so bump the version to release.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-c++
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      tags: ${{ steps.version.outputs.tags }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+      - name: Build with warnings as errors and run the tests
+        working-directory: cpp
+        run: |
+          cmake -S . -B build -DFLAGBEARER_WARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j 4
+          ctest --test-dir build --output-on-failure
+      - id: version
+        working-directory: cpp
+        run: |
+          cmake_version=$(sed -nE 's/^project\(flagbearer VERSION ([0-9.]+).*/\1/p' CMakeLists.txt)
+          header_version=$(sed -nE 's/.*kVersion = "(.*)";/\1/p' include/flagbearer/flagbearer.hpp)
+          if [ "$cmake_version" != "$header_version" ]; then
+            echo "CMakeLists.txt says $cmake_version but flagbearer.hpp says $header_version" >&2
+            exit 1
+          fi
+          echo "tags=cpp-v$cmake_version" >> "$GITHUB_OUTPUT"
+
+  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  tag:
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: true
+      - name: Tag the release
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+        run: |
+          for tag in $TAGS; do
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+              echo "$tag already exists"
+            else
+              git tag "$tag" "$GITHUB_SHA"
+              git push origin "$tag"
+            fi
+          done

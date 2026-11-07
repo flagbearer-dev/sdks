@@ -1,0 +1,96 @@
+name: Publish Rust
+
+# Publishes the flagbearer crate to crates.io through trusted publishing.
+# Starts only when you run it from the Actions tab, on main. A version that's
+# already published is skipped, so bump the version to release.
+# crates.io only allows trusted publishing once the crate exists, so the
+# first release is published by hand (see rust/README.md).
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-rust
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      tags: ${{ steps.version.outputs.tags }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16
+        with:
+          toolchain: stable
+      - run: cargo test --locked
+        working-directory: rust
+      - run: cargo package --locked
+        working-directory: rust
+      - id: version
+        working-directory: rust
+        run: |
+          version=$(sed -nE 's/^version = "(.*)"/\1/p' Cargo.toml | head -1)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tags=rust-v$version" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16
+        with:
+          toolchain: stable
+      - name: Skip a version that's already published
+        id: exists
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -A 'flagbearer-sdks release (github.com/flagbearer-dev/sdks)' "https://crates.io/api/v1/crates/flagbearer/$VERSION")
+          echo "published=$([ "$code" = 200 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+        if: steps.exists.outputs.published == 'false'
+        id: auth
+      - run: cargo publish --locked
+        if: steps.exists.outputs.published == 'false'
+        working-directory: rust
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  tag:
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: true
+      - name: Tag the release
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+        run: |
+          for tag in $TAGS; do
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+              echo "$tag already exists"
+            else
+              git tag "$tag" "$GITHUB_SHA"
+              git push origin "$tag"
+            fi
+          done
