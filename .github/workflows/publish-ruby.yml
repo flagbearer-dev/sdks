@@ -72,7 +72,7 @@ jobs:
           response=$(curl -sS -o exchange.json -w '%{http_code}' -X POST https://rubygems.org/api/v1/oidc/trusted_publisher/exchange_token \
             -H 'content-type: application/json' -H 'accept: application/json' -d "$body")
           key=$(jq -r '.rubygems_api_key // empty' exchange.json 2>/dev/null || true)
-          if [ "$response" != 200 ] || [ -z "$key" ]; then
+          if [ "${response#2}" = "$response" ] || [ -z "$key" ]; then  # any 2xx; RubyGems answers 201
             echo "RubyGems refused the token exchange ($response):" >&2
             jq 'del(.rubygems_api_key)' exchange.json >&2 2>/dev/null || cat exchange.json >&2
             rm -f exchange.json
