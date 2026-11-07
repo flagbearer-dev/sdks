@@ -10,13 +10,15 @@ from flagbearer._http import RefreshError
 USER = {"key": "user-1"}
 
 
-def test_defaults_until_the_first_ruleset_then_local_rules(sdk, make_client):
+def test_checks_return_the_default_before_any_ruleset(sdk, make_client):
     sdk.ruleset_statuses = [503] * 1000
     client = make_client()
     assert client.is_enabled("checkout", USER, default=True) is True
     assert client.is_enabled("checkout", USER) is False
 
-    sdk.ruleset_statuses = []
+
+def test_checks_use_the_rules_after_a_sync(sdk, make_client):
+    client = make_client()
     client.sync()
     assert client.is_enabled("checkout", USER) is True
     assert client.is_enabled("missing", USER, default=True) is True

@@ -7,13 +7,15 @@ class TestClient < Minitest::Test
 
   USER = { key: "user-1" }.freeze
 
-  def test_defaults_until_the_first_ruleset_then_local_rules
+  def test_checks_return_the_default_before_any_ruleset
     @sdk.ruleset_statuses = [503] * 1000
     client = make_client
     assert client.enabled?("checkout", USER, default: true)
     refute client.enabled?("checkout", USER)
+  end
 
-    @sdk.synchronize { @sdk.ruleset_statuses = [] }
+  def test_checks_use_the_rules_after_a_sync
+    client = make_client
     client.sync
     assert client.enabled?("checkout", USER)
     assert client.enabled?("missing", USER, default: true)

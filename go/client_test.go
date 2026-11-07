@@ -188,7 +188,7 @@ func waitFor(t *testing.T, condition func() bool) {
 
 var user1 = User{Key: "user-1"}
 
-func TestDefaultsUntilTheFirstRulesetThenLocalRules(t *testing.T) {
+func TestChecksReturnTheDefaultBeforeAnyRuleset(t *testing.T) {
 	fake := newFakeSDK(t)
 	fake.set(func(f *fakeSDK) {
 		for range 1000 {
@@ -199,7 +199,11 @@ func TestDefaultsUntilTheFirstRulesetThenLocalRules(t *testing.T) {
 	if !client.IsEnabled("checkout", user1, true) || client.IsEnabled("checkout", user1, false) {
 		t.Fatal("expected the default before any rules")
 	}
-	fake.set(func(f *fakeSDK) { f.rulesetStatuses = nil })
+}
+
+func TestChecksUseTheRulesAfterASync(t *testing.T) {
+	fake := newFakeSDK(t)
+	client := newClient(t, fake)
 	mustSync(t, client)
 	if !client.IsEnabled("checkout", user1, false) {
 		t.Fatal("expected the rule after sync")

@@ -328,13 +328,18 @@ fn user1() -> User {
 }
 
 #[test]
-fn defaults_until_the_first_ruleset_then_local_rules() {
+fn checks_return_the_default_before_any_ruleset() {
     let fake = Fake::new();
     fake.set(|s| s.ruleset_statuses = vec![503; 1000]);
     let client = fake.client(fast());
     assert!(client.is_enabled("checkout", &user1(), true));
     assert!(!client.is_enabled("checkout", &user1(), false));
-    fake.set(|s| s.ruleset_statuses.clear());
+}
+
+#[test]
+fn checks_use_the_rules_after_a_sync() {
+    let fake = Fake::new();
+    let client = fake.client(fast());
     client.sync().unwrap();
     assert!(client.is_enabled("checkout", &user1(), false));
     assert!(client.is_enabled("missing", &user1(), true));

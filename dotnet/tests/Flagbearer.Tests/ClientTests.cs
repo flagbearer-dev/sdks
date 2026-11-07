@@ -59,14 +59,18 @@ public sealed class ClientTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task DefaultsUntilTheFirstRulesetThenLocalRules()
+    public void ChecksReturnTheDefaultBeforeAnyRuleset()
     {
         _sdk.Set(fake => { for (var i = 0; i < 1000; i++) fake.RulesetStatuses.Enqueue(503); });
         var client = Client();
         Assert.True(client.IsEnabled("checkout", User1, true));
         Assert.False(client.IsEnabled("checkout", User1, false));
+    }
 
-        _sdk.Set(fake => fake.RulesetStatuses.Clear());
+    [Fact]
+    public async Task ChecksUseTheRulesAfterASync()
+    {
+        var client = Client();
         await client.SyncAsync();
         Assert.True(client.IsEnabled("checkout", User1));
         Assert.True(client.IsEnabled("missing", User1, true));

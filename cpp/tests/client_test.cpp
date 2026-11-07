@@ -58,13 +58,17 @@ int stream_connections(FakeSdk& fake) {
 
 }  // namespace
 
-TEST_CASE("defaults until the first ruleset, then local rules") {
+TEST_CASE("checks return the default before any ruleset") {
   FakeSdk fake;
   fake.set([](FakeSdk& f) { f.ruleset_statuses.assign(1000, 503); });
   auto client = client_for(fake);
   CHECK(client->is_enabled("checkout", user1, true));
   CHECK_FALSE(client->is_enabled("checkout", user1, false));
-  fake.set([](FakeSdk& f) { f.ruleset_statuses.clear(); });
+}
+
+TEST_CASE("checks use the rules after a sync") {
+  FakeSdk fake;
+  auto client = client_for(fake);
   client->sync(3s);
   CHECK(client->is_enabled("checkout", user1, false));
   CHECK(client->is_enabled("missing", user1, true));

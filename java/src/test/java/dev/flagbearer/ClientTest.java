@@ -236,7 +236,7 @@ class ClientTest {
     }
 
     @Test
-    void defaultsUntilTheFirstRulesetThenLocalRules() {
+    void checksReturnTheDefaultBeforeAnyRuleset() {
         sdk.set(() -> {
             for (int i = 0; i < 1000; i++) {
                 sdk.rulesetStatuses.add(503);
@@ -245,7 +245,11 @@ class ClientTest {
         FlagbearerClient client = client();
         assertTrue(client.isEnabled("checkout", USER, true));
         assertFalse(client.isEnabled("checkout", USER, false));
-        sdk.set(() -> sdk.rulesetStatuses.clear());
+    }
+
+    @Test
+    void checksUseTheRulesAfterASync() {
+        FlagbearerClient client = client();
         client.sync();
         assertTrue(client.isEnabled("checkout", USER, false));
         assertTrue(client.isEnabled("missing", USER, true));
