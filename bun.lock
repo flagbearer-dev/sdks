@@ -27,7 +27,7 @@
     },
     "js/node": {
       "name": "@flagbearer/node",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "devDependencies": {
         "@flagbearer/evaluator": "workspace:*",
         "@flagbearer/sdk-core": "workspace:*",
@@ -36,7 +36,7 @@
     },
     "js/web": {
       "name": "@flagbearer/web",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@flagbearer/sdk-core": "workspace:*",
         "@types/bun": "latest",
