@@ -1,8 +1,0 @@
-{
-  "name": "@flagbearer/sdk-php",
-  "private": true,
-  "scripts": {
-    "test:sdk": "composer install --quiet && vendor/bin/phpunit",
-    "lint": "vendor/bin/phpstan analyse"
-  }
-}

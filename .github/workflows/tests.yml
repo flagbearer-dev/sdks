@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sdk: [python, go, java, dotnet, ruby, rust, cpp, php]
+        sdk: [python, go, java, dotnet, ruby, rust, cpp]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -76,12 +76,6 @@ jobs:
       - name: Install libcurl headers
         if: matrix.sdk == 'cpp'
         run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
-      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
-        if: matrix.sdk == 'php'
-        with:
-          php-version: "8.5"
-          extensions: curl, mbstring, pcntl
-          tools: composer
       - run: bun run --cwd ${{ matrix.sdk }} test:sdk
       # Apple clang's AddressSanitizer and ThreadSanitizer don't run locally, so CI covers them.
       - name: C++ under AddressSanitizer and UndefinedBehaviorSanitizer

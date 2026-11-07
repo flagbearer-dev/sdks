@@ -16,10 +16,10 @@ never waits on the network. Docs for each are at
 | Ruby | [`ruby`](ruby) | `flagbearer` (RubyGems) |
 | Rust | [`rust`](rust) | `flagbearer` (crates.io) |
 | C++ | [`cpp`](cpp) | CMake, from a git tag |
-| PHP | [`php`](php) | `flagbearer/flagbearer` (Packagist) |
+| PHP | [`flagbearer-dev/php-sdk`](https://github.com/flagbearer-dev/php-sdk) | `flagbearer/flagbearer` (Packagist) |
 
-Only the Browser and Node.js SDKs are published so far. The others are on their
-way to their registries.
+The PHP SDK lives in its own repository, since Packagist publishes from a
+repository's root. Go and C++ install straight from this repository's tags.
 
 ## How the SDKs stay consistent
 

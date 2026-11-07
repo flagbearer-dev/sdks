@@ -1,8 +1,0 @@
-parameters:
-  level: max
-  paths:
-    - src
-    - tests
-  excludePaths:
-    # A throwaway HTTP router the fake server runs; not library code.
-    - tests/fake-sdk-router.php

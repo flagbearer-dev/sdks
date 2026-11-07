@@ -36,10 +36,6 @@ testing/servers/rust-server/target/
 # C++
 cpp/build*/
 
-# PHP
-php/vendor/
-php/.phpunit.cache/
-
 # Local configuration and secrets
 .env*
 !.env.example
