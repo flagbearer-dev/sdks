@@ -59,7 +59,28 @@ jobs:
         with:
           name: ruby-gem
           path: gem
-      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      # Trades GitHub's identity token for a short-lived RubyGems key, as
+      # rubygems/configure-rubygems-credentials does. RubyGems.org also needs the
+      # owner's account ID to create a new gem, and that action can't send it yet.
+      - name: Get a short-lived RubyGems key
+        env:
+          OWNER: ${{ vars.RUBYGEMS_OWNER_ID }}
+        run: |
+          jwt=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=rubygems.org" | jq -r .value)
+          echo "::add-mask::$jwt"
+          body=$(jq -n --arg jwt "$jwt" --arg owner "$OWNER" 'if $owner == "" then {jwt: $jwt} else {jwt: $jwt, owner: $owner} end')
+          response=$(curl -sS -o exchange.json -w '%{http_code}' -X POST https://rubygems.org/api/v1/oidc/trusted_publisher/exchange_token \
+            -H 'content-type: application/json' -H 'accept: application/json' -d "$body")
+          key=$(jq -r '.rubygems_api_key // empty' exchange.json 2>/dev/null || true)
+          if [ "$response" != 200 ] || [ -z "$key" ]; then
+            echo "RubyGems refused the token exchange ($response):" >&2
+            jq 'del(.rubygems_api_key)' exchange.json >&2 2>/dev/null || cat exchange.json >&2
+            rm -f exchange.json
+            exit 1
+          fi
+          rm -f exchange.json
+          echo "::add-mask::$key"
+          echo "GEM_HOST_API_KEY=$key" >> "$GITHUB_ENV"
       - name: Publish to RubyGems
         id: published
         env:
