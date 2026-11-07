@@ -10,14 +10,14 @@
     },
     "js/core": {
       "name": "@flagbearer/sdk-core",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "devDependencies": {
         "@types/bun": "latest",
       },
     },
     "js/evaluator": {
       "name": "@flagbearer/evaluator",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@flagbearer/sdk-core": "workspace:*",
       },

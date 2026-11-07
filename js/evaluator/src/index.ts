@@ -3,5 +3,5 @@ export {
   evaluateFlag,
   evaluateFlags,
   type EvaluationUser,
-} from "./evaluate-flags";
+} from "./evaluate-flags.js";
 export type { FlagRule } from "@flagbearer/sdk-core/types";

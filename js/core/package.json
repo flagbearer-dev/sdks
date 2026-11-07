@@ -1,17 +1,45 @@
 {
   "name": "@flagbearer/sdk-core",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Shared types, validation and refresh logic for the Flagbearer JavaScript SDKs. Internal; install @flagbearer/node or @flagbearer/web instead.",
+  "license": "MIT",
+  "homepage": "https://flagbearer.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flagbearer-dev/sdks.git",
+    "directory": "js/core"
+  },
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./types": "./src/types.ts",
-    "./validation": "./src/validation.ts"
+    ".": {
+      "flagbearer-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./types": {
+      "flagbearer-source": "./src/types.ts",
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    },
+    "./validation": {
+      "flagbearer-source": "./src/validation.ts",
+      "types": "./dist/validation.d.ts",
+      "default": "./dist/validation.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
-    "test": "bun test ./tests"
+    "test": "bun test --conditions flagbearer-source ./tests",
+    "prepack": "bun run build"
   },
   "devDependencies": {
     "@types/bun": "latest"
