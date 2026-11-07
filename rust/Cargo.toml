@@ -6,6 +6,7 @@ rust-version = "1.85"
 description = "Flagbearer server SDK: check feature flags locally, kept current over a stream"
 license = "MIT"
 homepage = "https://flagbearer.dev"
+repository = "https://github.com/flagbearer-dev/sdks"
 documentation = "https://docs.flagbearer.dev/sdks/rust"
 readme = "README.md"
 keywords = ["feature-flags", "flagbearer"]
