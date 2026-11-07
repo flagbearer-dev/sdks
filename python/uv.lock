@@ -24,7 +24,7 @@ wheels = [
 ]
 
 [[package]]
-name = "flagbearer"
+name = "flagbearer-dev"
 source = { editable = "." }
 
 [package.dev-dependencies]

@@ -5,7 +5,7 @@ locally for each user, without making a network request for every flag check.
 Requires Python 3.10 or later and has no dependencies.
 
 ```sh
-pip install flagbearer
+pip install flagbearer-dev
 ```
 
 ## Docs

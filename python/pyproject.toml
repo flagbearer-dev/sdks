@@ -1,5 +1,5 @@
 [project]
-name = "flagbearer"
+name = "flagbearer-dev"
 dynamic = ["version"]
 description = "Flagbearer Python SDK"
 readme = "README.md"
@@ -23,6 +23,10 @@ dev = ["pytest>=8", "ruff>=0.14"]
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
+
+# The install name is flagbearer-dev; the code is still imported as flagbearer.
+[tool.hatch.build.targets.wheel]
+packages = ["src/flagbearer"]
 
 [tool.hatch.version]
 path = "src/flagbearer/_version.py"

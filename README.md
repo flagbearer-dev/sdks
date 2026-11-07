@@ -9,7 +9,7 @@ never waits on the network. Docs for each are at
 | --- | --- | --- |
 | Browser | [`js/web`](js/web) | `@flagbearer/web` (npm) |
 | Node.js | [`js/node`](js/node) | `@flagbearer/node` (npm) |
-| Python | [`python`](python) | `flagbearer` (PyPI) |
+| Python | [`python`](python) | `flagbearer-dev` (PyPI) |
 | Go | [`go`](go) | `github.com/flagbearer-dev/sdks/go` |
 | Java and Kotlin | [`java`](java) | `dev.flagbearer:flagbearer` (Maven Central) |
 | .NET | [`dotnet`](dotnet) | `Flagbearer` (NuGet) |
