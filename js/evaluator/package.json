@@ -1,39 +1,17 @@
 {
   "name": "@flagbearer/evaluator",
-  "version": "0.1.0",
-  "description": "Flagbearer flag evaluation: rollout buckets, testers and defaults, as every Flagbearer SDK computes them. Internal; install an SDK instead.",
-  "license": "MIT",
-  "homepage": "https://flagbearer.dev",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/flagbearer-dev/sdks.git",
-    "directory": "js/evaluator"
-  },
+  "version": "0.0.0",
+  "private": true,
   "type": "module",
   "exports": {
-    ".": {
-      "flagbearer-source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
-  },
-  "files": [
-    "dist",
-    "LICENSE",
-    "README.md"
-  ],
-  "sideEffects": false,
-  "publishConfig": {
-    "access": "public"
+    ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "bun test --conditions flagbearer-source tests",
-    "prepack": "bun run build"
+    "test": "bun test tests"
   },
   "dependencies": {
-    "@flagbearer/sdk-core": "workspace:^"
+    "@flagbearer/sdk-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^26.6.3"

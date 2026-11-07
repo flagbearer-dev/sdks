@@ -4,15 +4,12 @@
     "lib": ["ESNext"],
     "module": "Preserve",
     "moduleResolution": "bundler",
-    "customConditions": ["flagbearer-source"],
     "types": ["node"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "rootDir": "src",
-    "outDir": "dist",
-    "declaration": true
+    "noEmit": true
   },
   "include": ["src"]
 }

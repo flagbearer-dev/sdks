@@ -34,7 +34,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "bun build --conditions flagbearer-source ./src/index.ts --target node --format esm --outdir ./dist --define __FLAGBEARER_SDK_VERSION__=\\\"$npm_package_version\\\" && tsc -p tsconfig.json --emitDeclarationOnly",
+    "build": "bun build ./src/index.ts --target node --format esm --outdir ./dist --define __FLAGBEARER_SDK_VERSION__=\\\"$npm_package_version\\\" && tsc -p tsconfig.json --emitDeclarationOnly",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prepack": "bun run build"
   },

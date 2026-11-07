@@ -4,7 +4,6 @@
     "lib": ["ES2022"],
     "module": "Preserve",
     "moduleResolution": "bundler",
-    "customConditions": ["flagbearer-source"],
     "types": ["node"],
     "rootDir": "src",
     "outDir": "dist",

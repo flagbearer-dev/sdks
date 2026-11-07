@@ -9,8 +9,7 @@ consumer="$(mktemp -d)"
 trap 'rm -rf "$consumer"' EXIT
 
 mkdir -p "$out"
-# sdk-core first: the evaluator depends on it.
-for package in core evaluator web node; do
+for package in web node; do
   (cd "$root/js/$package" && bun pm pack --destination "$out")
 done
 

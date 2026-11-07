@@ -1,7 +1,7 @@
 name: Publish JS
 
-# Publishes @flagbearer/node, @flagbearer/web and the internal @flagbearer/sdk-core
-# and @flagbearer/evaluator to npm through trusted publishing, so no npm token is stored here.
+# Publishes @flagbearer/node and @flagbearer/web to npm through trusted
+# publishing, so no npm token is stored here.
 # Starts only when you run it from the Actions tab, on main. A version that's
 # already published is skipped, so bump the version to release.
 on: workflow_dispatch
