@@ -17,11 +17,11 @@ std::string iso_millis(std::chrono::system_clock::time_point at) {
   std::time_t seconds = static_cast<std::time_t>(ms / 1000);
   std::tm utc{};
   gmtime_r(&seconds, &utc);
-  char out[32];
-  std::snprintf(out, sizeof out, "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ", utc.tm_year + 1900,
-                utc.tm_mon + 1, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec,
-                static_cast<int>(ms % 1000));
-  return out;
+  char date[32];
+  std::strftime(date, sizeof date, "%Y-%m-%dT%H:%M:%S", &utc);
+  char millis[8];
+  std::snprintf(millis, sizeof millis, "%03d", static_cast<int>((ms % 1000 + 1000) % 1000));
+  return std::string(date) + "." + millis + "Z";
 }
 
 ExposureReporter::ExposureReporter(std::string url, std::string key, std::string app_version,

@@ -90,12 +90,13 @@ jobs:
         run: |
           cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DFLAGBEARER_SANITIZE=address,undefined
           cmake --build build-asan -j 4
-          ctest --test-dir build-asan --output-on-failure
+          UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-asan --output-on-failure
       - name: C++ under ThreadSanitizer
         if: matrix.sdk == 'cpp'
         working-directory: cpp
         run: |
           cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug -DFLAGBEARER_SANITIZE=thread
           cmake --build build-tsan -j 4
-          ctest --test-dir build-tsan --output-on-failure
+          # ThreadSanitizer can't start with the kernel's full address randomization, so run without it.
+          TSAN_OPTIONS=halt_on_error=1 setarch "$(uname -m)" -R ctest --test-dir build-tsan --output-on-failure
 

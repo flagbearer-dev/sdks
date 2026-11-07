@@ -30,7 +30,6 @@ void Coordinator::start() {
 
 void Coordinator::sync(Ms timeout) {
   auto waiter = std::make_shared<Waiter>();
-  auto done = waiter->promise.get_future();
   {
     std::lock_guard<std::mutex> lock(mutex_);
     if (stopped_) throw Error("Flagbearer client is closed", true);
@@ -45,10 +44,20 @@ void Coordinator::sync(Ms timeout) {
     }
   }
   wake_.notify_all();
-  if (done.wait_for(timeout) != std::future_status::ready) {
+  std::unique_lock<std::mutex> lock(waiter->mutex);
+  if (!waiter->ready.wait_for(lock, timeout, [&] { return waiter->done; })) {
     throw Error("Flagbearer sync timed out", false);
   }
-  done.get();
+  if (waiter->failure) throw Error(waiter->failure->message, waiter->failure->permanent);
+}
+
+void Coordinator::Waiter::finish(std::optional<Failure> result) {
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    failure = std::move(result);
+    done = true;
+  }
+  ready.notify_all();
 }
 
 void Coordinator::refresh_in_background() {
@@ -102,7 +111,7 @@ void Coordinator::close() {
   }
   wake_.notify_all();
   for (auto& waiter : waiters) {
-    waiter->promise.set_exception(std::make_exception_ptr(Error("Flagbearer client is closed", true)));
+    waiter->finish(Failure{"Flagbearer client is closed", true});
   }
 }
 
@@ -188,11 +197,15 @@ void Coordinator::run() {
       waiters.swap(waiters_);
     }
 
-    std::exception_ptr error;
+    std::optional<Failure> error;
     try {
       refresh();
+    } catch (const Error& failure) {
+      error = Failure{failure.what(), failure.is_permanent()};
+    } catch (const std::exception& failure) {
+      error = Failure{failure.what(), false};
     } catch (...) {
-      error = std::current_exception();
+      error = Failure{"Flagbearer sync failed", false};
     }
 
     bool stopped = false;
@@ -204,20 +217,9 @@ void Coordinator::run() {
       waiters_.clear();
       stopped = stopped_;
     }
-    for (auto& waiter : waiters) {
-      if (error) {
-        waiter->promise.set_exception(error);
-      } else {
-        waiter->promise.set_value();
-      }
-    }
+    for (auto& waiter : waiters) waiter->finish(error);
     if (error && !stopped && waiters.empty()) {
-      try {
-        std::rethrow_exception(error);
-      } catch (const std::exception& failure) {
-        log_error(std::string("Flagbearer sync failed: ") + failure.what());
-      } catch (...) {
-      }
+      log_error("Flagbearer sync failed: " + error->message);
     }
   }
 }

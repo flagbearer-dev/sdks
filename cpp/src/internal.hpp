@@ -7,7 +7,6 @@
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
-#include <future>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -211,8 +210,18 @@ class Coordinator {
   void join();
 
  private:
+  // A sync() call waiting on the worker. Only the failure's fields cross
+  // threads, never an exception object, and the caller throws its own Error.
+  struct Failure {
+    std::string message;
+    bool permanent;
+  };
   struct Waiter {
-    std::promise<void> promise;
+    std::mutex mutex;
+    std::condition_variable ready;
+    bool done = false;
+    std::optional<Failure> failure;
+    void finish(std::optional<Failure> result);
   };
 
   bool behind() const;
