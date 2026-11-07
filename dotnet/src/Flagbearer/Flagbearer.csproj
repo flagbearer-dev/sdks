@@ -17,6 +17,8 @@
     <PackageTags>feature-flags;flagbearer</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://flagbearer.dev</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/flagbearer-dev/sdks</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
