@@ -68,7 +68,7 @@ jobs:
         run: |
           jwt=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=rubygems.org" | jq -r .value)
           echo "::add-mask::$jwt"
-          body=$(jq -n --arg jwt "$jwt" --arg owner "$OWNER" 'if $owner == "" then {jwt: $jwt} else {jwt: $jwt, owner: ($owner | tonumber? // $owner)} end')
+          body=$(jq -n --arg jwt "$jwt" --arg owner "$OWNER" 'if $owner == "" then {jwt: $jwt} else {jwt: $jwt, owner: $owner} end')
           response=$(curl -sS -o exchange.json -w '%{http_code}' -X POST https://rubygems.org/api/v1/oidc/trusted_publisher/exchange_token \
             -H 'content-type: application/json' -H 'accept: application/json' -d "$body")
           key=$(jq -r '.rubygems_api_key // empty' exchange.json 2>/dev/null || true)
