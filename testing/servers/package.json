@@ -1,0 +1,8 @@
+{
+  "name": "@flagbearer/test-servers",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@flagbearer/node": "workspace:*"
+  }
+}

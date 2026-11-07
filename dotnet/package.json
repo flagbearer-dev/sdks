@@ -1,0 +1,9 @@
+{
+  "name": "@flagbearer/sdk-dotnet",
+  "private": true,
+  "scripts": {
+    "test:sdk": "dotnet test Flagbearer.sln",
+    "lint": "dotnet format Flagbearer.sln --verify-no-changes",
+    "pack": "dotnet pack src/Flagbearer -c Release -o dist"
+  }
+}

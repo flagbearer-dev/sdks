@@ -1,0 +1,20 @@
+[package]
+name = "flagbearer"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Flagbearer server SDK: check feature flags locally, kept current over a stream"
+license = "MIT"
+homepage = "https://flagbearer.dev"
+documentation = "https://docs.flagbearer.dev/sdks/rust"
+readme = "README.md"
+keywords = ["feature-flags", "flagbearer"]
+categories = ["config", "development-tools"]
+exclude = ["package.json"]
+
+[dependencies]
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "1"
+serde_json = "1"
+sha2 = "0.10"

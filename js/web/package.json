@@ -1,0 +1,43 @@
+{
+  "name": "@flagbearer/web",
+  "version": "0.2.0",
+  "description": "Flagbearer browser SDK",
+  "license": "MIT",
+  "homepage": "https://flagbearer.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flagbearer-dev/sdks.git",
+    "directory": "js/web"
+  },
+  "keywords": [
+    "feature-flags",
+    "flagbearer"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --target browser --format esm --outdir ./dist --define __FLAGBEARER_SDK_VERSION__=\\\"$npm_package_version\\\" && tsc -p tsconfig.json --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
+    "test": "bun test ./tests",
+    "prepack": "bun run build"
+  },
+  "devDependencies": {
+    "@flagbearer/sdk-core": "workspace:*",
+    "@types/bun": "latest"
+  }
+}

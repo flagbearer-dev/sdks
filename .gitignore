@@ -1,0 +1,47 @@
+# Dependencies and build output
+node_modules/
+dist/
+.cache/
+*.tgz
+*.tsbuildinfo
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Go fixture build output lives in .cache/
+
+# Java
+java/build/
+java/.gradle/
+
+# .NET
+dotnet/**/bin/
+dotnet/**/obj/
+dotnet/**/TestResults/
+dotnet/dist/
+testing/servers/dotnet-server/bin/
+testing/servers/dotnet-server/obj/
+
+# Ruby
+ruby/.bundle/
+ruby/pkg/
+
+# Rust
+rust/target/
+testing/servers/rust-server/target/
+
+# C++
+cpp/build*/
+
+# PHP
+php/vendor/
+php/.phpunit.cache/
+
+# Local configuration and secrets
+.env*
+!.env.example
+.DS_Store
+.idea/

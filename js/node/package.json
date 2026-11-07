@@ -1,0 +1,46 @@
+{
+  "name": "@flagbearer/node",
+  "version": "0.1.4",
+  "description": "Flagbearer Node.js SDK",
+  "license": "MIT",
+  "homepage": "https://flagbearer.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flagbearer-dev/sdks.git",
+    "directory": "js/node"
+  },
+  "keywords": [
+    "feature-flags",
+    "flagbearer"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --target node --format esm --outdir ./dist --define __FLAGBEARER_SDK_VERSION__=\\\"$npm_package_version\\\" && tsc -p tsconfig.json --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prepack": "bun run build"
+  },
+  "devDependencies": {
+    "@flagbearer/evaluator": "workspace:*",
+    "@flagbearer/sdk-core": "workspace:*",
+    "@types/node": "^26.6.3"
+  }
+}

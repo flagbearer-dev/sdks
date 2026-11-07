@@ -1,0 +1,9 @@
+{
+  "name": "@flagbearer/sdk-rust",
+  "private": true,
+  "scripts": {
+    "test:sdk": "cargo test --locked",
+    "lint": "cargo clippy --locked --all-targets -- -D warnings && cargo fmt --check && cargo fmt --check --manifest-path ../testing/servers/rust-server/Cargo.toml",
+    "build:fixture": "cargo build --release --locked --manifest-path ../testing/servers/rust-server/Cargo.toml --target-dir ../.cache/rust-target"
+  }
+}

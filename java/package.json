@@ -1,0 +1,8 @@
+{
+  "name": "@flagbearer/sdk-java",
+  "private": true,
+  "scripts": {
+    "test:sdk": "./gradlew test --no-daemon -q",
+    "build:fixture": "./gradlew fixtureJar --no-daemon -q"
+  }
+}

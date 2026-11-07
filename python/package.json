@@ -1,0 +1,8 @@
+{
+  "name": "@flagbearer/sdk-python",
+  "private": true,
+  "scripts": {
+    "test:sdk": "uv run --locked pytest -q",
+    "lint": "uv run --locked ruff check . ../testing/servers/python-server.py && uv run --locked ruff format --check . ../testing/servers/python-server.py"
+  }
+}

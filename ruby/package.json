@@ -1,0 +1,8 @@
+{
+  "name": "@flagbearer/sdk-ruby",
+  "private": true,
+  "scripts": {
+    "test:sdk": "PATH=\"$(dirname \"${RUBY_BIN:-/opt/homebrew/opt/ruby@3.4/bin/ruby}\"):$PATH\" sh -c 'bundle install --quiet && bundle exec rake test'",
+    "lint": "PATH=\"$(dirname \"${RUBY_BIN:-/opt/homebrew/opt/ruby@3.4/bin/ruby}\"):$PATH\" sh -c 'for file in lib/*.rb lib/flagbearer/*.rb test/*.rb ../testing/servers/ruby-server.rb; do ruby -wc \"$file\" >/dev/null || exit 1; done'"
+  }
+}

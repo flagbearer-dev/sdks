@@ -1,0 +1,278 @@
+{
+  "buckets": [
+    {
+      "flag": "advanced-search",
+      "user": "user-1",
+      "bucket": 6714
+    },
+    {
+      "flag": "advanced-search",
+      "user": "user-3",
+      "bucket": 2354
+    },
+    {
+      "flag": "checkout",
+      "user": "user-1",
+      "bucket": 1789
+    },
+    {
+      "flag": "checkout",
+      "user": "ü-user",
+      "bucket": 6665
+    },
+    {
+      "flag": "a:b",
+      "user": "c",
+      "bucket": 8206
+    },
+    {
+      "flag": "a",
+      "user": "b:c",
+      "bucket": 8206
+    },
+    {
+      "flag": "new-dashboard",
+      "user": "42",
+      "bucket": 1752
+    },
+    {
+      "flag": "new-dashboard",
+      "user": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "bucket": 2785
+    }
+  ],
+  "cases": [
+    {
+      "name": "an unknown flag returns the default",
+      "flag": null,
+      "user": {
+        "key": "user-1"
+      },
+      "default": true,
+      "expect": {
+        "value": true,
+        "reason": "fallback"
+      }
+    },
+    {
+      "name": "a disabled flag is off, even for a tester",
+      "flag": {
+        "key": "checkout",
+        "enabled": false,
+        "rolloutBps": 10000,
+        "overrideEmails": ["ann@example.com"]
+      },
+      "user": {
+        "key": "user-1",
+        "email": "ann@example.com"
+      },
+      "default": true,
+      "expect": {
+        "value": false,
+        "reason": "off"
+      }
+    },
+    {
+      "name": "a tester email matches after trimming and lowercasing both sides",
+      "flag": {
+        "key": "checkout",
+        "enabled": true,
+        "rolloutBps": 0,
+        "overrideEmails": [" Ann@Example.com "]
+      },
+      "user": {
+        "key": "user-1",
+        "email": "ann@EXAMPLE.com  "
+      },
+      "default": false,
+      "expect": {
+        "value": true,
+        "reason": "tester"
+      }
+    },
+    {
+      "name": "a tester needs no user key",
+      "flag": {
+        "key": "checkout",
+        "enabled": true,
+        "rolloutBps": 5000,
+        "overrideEmails": ["ann@example.com"]
+      },
+      "user": {
+        "email": "ann@example.com"
+      },
+      "default": false,
+      "expect": {
+        "value": true,
+        "reason": "tester"
+      }
+    },
+    {
+      "name": "a blank email never matches a blank override",
+      "flag": {
+        "key": "checkout",
+        "enabled": true,
+        "rolloutBps": 0,
+        "overrideEmails": [""]
+      },
+      "user": {
+        "key": "user-1",
+        "email": "   "
+      },
+      "default": true,
+      "expect": {
+        "value": false,
+        "reason": "rollout"
+      }
+    },
+    {
+      "name": "a user below the rollout is on",
+      "flag": {
+        "key": "advanced-search",
+        "enabled": true,
+        "rolloutBps": 5000,
+        "overrideEmails": []
+      },
+      "user": {
+        "key": "user-3"
+      },
+      "default": false,
+      "expect": {
+        "value": true,
+        "reason": "rollout"
+      }
+    },
+    {
+      "name": "a user above the rollout is off",
+      "flag": {
+        "key": "advanced-search",
+        "enabled": true,
+        "rolloutBps": 5000,
+        "overrideEmails": []
+      },
+      "user": {
+        "key": "user-1"
+      },
+      "default": true,
+      "expect": {
+        "value": false,
+        "reason": "rollout"
+      }
+    },
+    {
+      "name": "a bucket equal to rolloutBps is off",
+      "flag": {
+        "key": "checkout",
+        "enabled": true,
+        "rolloutBps": 1789,
+        "overrideEmails": []
+      },
+      "user": {
+        "key": "user-1"
+      },
+      "default": true,
+      "expect": {
+        "value": false,
+        "reason": "rollout"
+      }
+    },
+    {
+      "name": "a bucket one below rolloutBps is on",
+      "flag": {
+        "key": "checkout",
+        "enabled": true,
+        "rolloutBps": 1790,
+        "overrideEmails": []
+      },
+      "user": {
+        "key": "user-1"
+      },
+      "default": false,
+      "expect": {
+        "value": true,
+        "reason": "rollout"
+      }
+    },
+    {
+      "name": "user keys are hashed as UTF-8",
+      "flag": {
+        "key": "checkout",
+        "enabled": true,
+        "rolloutBps": 6666,
+        "overrideEmails": []
+      },
+      "user": {
+        "key": "ü-user"
+      },
+      "default": false,
+      "expect": {
+        "value": true,
+        "reason": "rollout"
+      }
+    },
+    {
+      "name": "without a user key, a full rollout is on",
+      "flag": {
+        "key": "checkout",
+        "enabled": true,
+        "rolloutBps": 10000,
+        "overrideEmails": []
+      },
+      "user": {},
+      "default": false,
+      "expect": {
+        "value": true,
+        "reason": "rollout"
+      }
+    },
+    {
+      "name": "without a user key, a zero rollout is off",
+      "flag": {
+        "key": "checkout",
+        "enabled": true,
+        "rolloutBps": 0,
+        "overrideEmails": []
+      },
+      "user": {},
+      "default": true,
+      "expect": {
+        "value": false,
+        "reason": "rollout"
+      }
+    },
+    {
+      "name": "without a user key, a partial rollout returns the default",
+      "flag": {
+        "key": "checkout",
+        "enabled": true,
+        "rolloutBps": 5000,
+        "overrideEmails": []
+      },
+      "user": {
+        "email": "bob@example.com"
+      },
+      "default": true,
+      "expect": {
+        "value": true,
+        "reason": "fallback"
+      }
+    },
+    {
+      "name": "an empty user key counts as no key",
+      "flag": {
+        "key": "checkout",
+        "enabled": true,
+        "rolloutBps": 5000,
+        "overrideEmails": []
+      },
+      "user": {
+        "key": ""
+      },
+      "default": true,
+      "expect": {
+        "value": true,
+        "reason": "fallback"
+      }
+    }
+  ]
+}

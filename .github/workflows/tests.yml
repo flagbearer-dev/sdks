@@ -1,0 +1,101 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build
+
+  # Each server SDK's own tests, with only its toolchain.
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: [python, go, java, dotnet, ruby, rust, cpp, php]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        if: matrix.sdk == 'python'
+        with:
+          version: 0.11.2
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: matrix.sdk == 'go'
+        with:
+          go-version-file: go/go.mod
+          cache: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        if: matrix.sdk == 'java'
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        if: matrix.sdk == 'dotnet'
+        with:
+          dotnet-version: 10.0.x
+      - uses: ruby/setup-ruby@26e5b7d197ebf60545ee9667bcbace0be11ccaec # v1.334.0
+        if: matrix.sdk == 'ruby'
+        with:
+          ruby-version: "3.4"
+          working-directory: ruby
+          bundler-cache: true
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16
+        if: matrix.sdk == 'rust'
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - name: Install libcurl headers
+        if: matrix.sdk == 'cpp'
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        if: matrix.sdk == 'php'
+        with:
+          php-version: "8.5"
+          extensions: curl, mbstring, pcntl
+          tools: composer
+      - run: bun run --cwd ${{ matrix.sdk }} test:sdk
+      # Apple clang's AddressSanitizer and ThreadSanitizer don't run locally, so CI covers them.
+      - name: C++ under AddressSanitizer and UndefinedBehaviorSanitizer
+        if: matrix.sdk == 'cpp'
+        working-directory: cpp
+        run: |
+          cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DFLAGBEARER_SANITIZE=address,undefined
+          cmake --build build-asan -j 4
+          ctest --test-dir build-asan --output-on-failure
+      - name: C++ under ThreadSanitizer
+        if: matrix.sdk == 'cpp'
+        working-directory: cpp
+        run: |
+          cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug -DFLAGBEARER_SANITIZE=thread
+          cmake --build build-tsan -j 4
+          ctest --test-dir build-tsan --output-on-failure
+

@@ -1,0 +1,16 @@
+{
+  "name": "flagbearer-sdks",
+  "private": true,
+  "workspaces": [
+    "js/*",
+    "testing/servers"
+  ],
+  "scripts": {
+    "test": "bun run --filter './js/*' test",
+    "typecheck": "bun run --filter './js/*' typecheck",
+    "build": "bun run --filter @flagbearer/node build && bun run --filter @flagbearer/web build"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

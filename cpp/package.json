@@ -1,0 +1,9 @@
+{
+  "name": "@flagbearer/sdk-cpp",
+  "private": true,
+  "scripts": {
+    "test:sdk": "cmake -S . -B build -DFLAGBEARER_WARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug && cmake --build build -j 4 && ctest --test-dir build --output-on-failure",
+    "lint": "cmake -S . -B build-lint -DFLAGBEARER_WARNINGS_AS_ERRORS=ON -DFLAGBEARER_BUILD_TESTS=ON && cmake --build build-lint -j 4",
+    "build:fixture": "cmake -S ../testing/servers/cpp-server -B ../.cache/cpp-server-build -DCMAKE_BUILD_TYPE=Release && cmake --build ../.cache/cpp-server-build -j 4"
+  }
+}

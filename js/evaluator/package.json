@@ -1,0 +1,19 @@
+{
+  "name": "@flagbearer/evaluator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test tests"
+  },
+  "dependencies": {
+    "@flagbearer/sdk-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3"
+  }
+}

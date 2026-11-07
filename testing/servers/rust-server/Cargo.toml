@@ -1,0 +1,11 @@
+[package]
+name = "rust-server"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# The Rust SDK behind the same GET /flags and GET /flush routes as node-server.ts.
+[dependencies]
+flagbearer = { path = "../../../rust" }
+serde_json = "1"
+signal-hook = "0.3"

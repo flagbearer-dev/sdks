@@ -1,0 +1,22 @@
+PATH
+  remote: .
+  specs:
+    flagbearer (0.1.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    minitest (5.27.0)
+    rake (13.4.2)
+
+PLATFORMS
+  arm64-darwin-24
+  ruby
+
+DEPENDENCIES
+  flagbearer!
+  minitest (~> 5.25)
+  rake (~> 13.0)
+
+BUNDLED WITH
+   2.6.3
