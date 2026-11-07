@@ -45,6 +45,8 @@ jobs:
 
   publish:
     needs: build
+    outputs:
+      tags: ${{ steps.published.outputs.tags }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: npm
@@ -61,7 +63,9 @@ jobs:
           name: js-packages
           path: ${{ runner.temp }}/js-packages
       - name: Publish to npm
+        id: published
         run: |
+          tags=""
           for package in "$RUNNER_TEMP"/js-packages/*.tgz; do
             spec=$(tar -xOzf "$package" package/package.json | node -p 'const p = JSON.parse(require("fs").readFileSync(0)); p.name + "@" + p.version')
             if npm view "$spec" version >/dev/null 2>&1; then
@@ -69,11 +73,15 @@ jobs:
               continue
             fi
             npm publish "$package" --access public
+            # @flagbearer/node@0.1.5 -> node-v0.1.5
+            name=${spec%@*}; tags="$tags ${name#@flagbearer/}-v${spec##*@}"
           done
+          echo "tags=${tags# }" >> "$GITHUB_OUTPUT"
 
-  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  # Marks the commit each version was published from, like needs.build.outputs.tags. Never moves a tag that exists.
   tag:
     needs: [build, publish]
+    if: needs.publish.outputs.tags != ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -84,7 +92,7 @@ jobs:
           persist-credentials: true
       - name: Tag the release
         env:
-          TAGS: ${{ needs.build.outputs.tags }}
+          TAGS: ${{ needs.publish.outputs.tags }}
         run: |
           for tag in $TAGS; do
             if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then

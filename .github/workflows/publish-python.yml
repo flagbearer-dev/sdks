@@ -41,6 +41,8 @@ jobs:
 
   publish:
     needs: build
+    outputs:
+      tags: ${{ steps.published.outputs.tags }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: pypi
@@ -48,17 +50,30 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - name: Skip a version that's already published
+        id: exists
+        env:
+          TAG: ${{ needs.build.outputs.tags }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/flagbearer/${TAG#python-v}/json")
+          echo "published=$([ "$code" = 200 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.exists.outputs.published == 'false'
         with:
           name: python-dist
           path: dist
       - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
-        with:
-          skip-existing: true
+        if: steps.exists.outputs.published == 'false'
+      - id: published
+        if: steps.exists.outputs.published == 'false'
+        env:
+          TAG: ${{ needs.build.outputs.tags }}
+        run: echo "tags=$TAG" >> "$GITHUB_OUTPUT"
 
-  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  # Marks the commit each version was published from, like needs.build.outputs.tags. Never moves a tag that exists.
   tag:
     needs: [build, publish]
+    if: needs.publish.outputs.tags != ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -69,7 +84,7 @@ jobs:
           persist-credentials: true
       - name: Tag the release
         env:
-          TAGS: ${{ needs.build.outputs.tags }}
+          TAGS: ${{ needs.publish.outputs.tags }}
         run: |
           for tag in $TAGS; do
             if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then

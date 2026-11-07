@@ -43,6 +43,8 @@ jobs:
 
   publish:
     needs: build
+    outputs:
+      tags: ${{ steps.published.outputs.tags }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: rubygems
@@ -59,17 +61,22 @@ jobs:
           path: gem
       - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
       - name: Publish to RubyGems
+        id: published
+        env:
+          TAG: ${{ needs.build.outputs.tags }}
         run: |
           version=$(gem spec gem/flagbearer.gem version | sed -nE 's/.*version: (.*)/\1/p' | head -1)
           if gem list flagbearer --remote --exact --all | grep -qE "[ (,]$version[,)]"; then
             echo "Skipping flagbearer $version: already published"
           else
             gem push gem/flagbearer.gem
+            echo "tags=$TAG" >> "$GITHUB_OUTPUT"
           fi
 
-  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  # Marks the commit each version was published from, like needs.build.outputs.tags. Never moves a tag that exists.
   tag:
     needs: [build, publish]
+    if: needs.publish.outputs.tags != ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -80,7 +87,7 @@ jobs:
           persist-credentials: true
       - name: Tag the release
         env:
-          TAGS: ${{ needs.build.outputs.tags }}
+          TAGS: ${{ needs.publish.outputs.tags }}
         run: |
           for tag in $TAGS; do
             if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then

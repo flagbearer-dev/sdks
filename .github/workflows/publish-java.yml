@@ -41,6 +41,8 @@ jobs:
 
   publish:
     needs: build
+    outputs:
+      tags: ${{ steps.published.outputs.tags }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: maven-central
@@ -70,10 +72,16 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+      - id: published
+        if: steps.exists.outputs.published == 'false'
+        env:
+          TAG: ${{ needs.build.outputs.tags }}
+        run: echo "tags=$TAG" >> "$GITHUB_OUTPUT"
 
-  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  # Marks the commit each version was published from, like needs.build.outputs.tags. Never moves a tag that exists.
   tag:
     needs: [build, publish]
+    if: needs.publish.outputs.tags != ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -84,7 +92,7 @@ jobs:
           persist-credentials: true
       - name: Tag the release
         env:
-          TAGS: ${{ needs.build.outputs.tags }}
+          TAGS: ${{ needs.publish.outputs.tags }}
         run: |
           for tag in $TAGS; do
             if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then

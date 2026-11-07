@@ -39,6 +39,8 @@ jobs:
 
   publish:
     needs: build
+    outputs:
+      tags: ${{ steps.published.outputs.tags }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: nuget
@@ -53,17 +55,36 @@ jobs:
         with:
           name: nuget
           path: nuget
+      - name: Skip a version that's already published
+        id: exists
+        env:
+          TAG: ${{ needs.build.outputs.tags }}
+        run: |
+          version=${TAG#dotnet-v}
+          if curl -s https://api.nuget.org/v3-flatcontainer/flagbearer/index.json | jq -e --arg v "$version" '.versions | index($v)' >/dev/null; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        if: steps.exists.outputs.published == 'false'
         id: login
         with:
           user: ${{ vars.NUGET_USER }}
       - run: dotnet nuget push "nuget/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+        if: steps.exists.outputs.published == 'false'
         env:
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+      - id: published
+        if: steps.exists.outputs.published == 'false'
+        env:
+          TAG: ${{ needs.build.outputs.tags }}
+        run: echo "tags=$TAG" >> "$GITHUB_OUTPUT"
 
-  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  # Marks the commit each version was published from, like needs.build.outputs.tags. Never moves a tag that exists.
   tag:
     needs: [build, publish]
+    if: needs.publish.outputs.tags != ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -74,7 +95,7 @@ jobs:
           persist-credentials: true
       - name: Tag the release
         env:
-          TAGS: ${{ needs.build.outputs.tags }}
+          TAGS: ${{ needs.publish.outputs.tags }}
         run: |
           for tag in $TAGS; do
             if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
