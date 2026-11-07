@@ -1,10 +1,10 @@
 name: Publish PHP
 
-# Copies php/ into the public flagbearer-dev/php-sdk repository, which
-# Packagist reads, and tags it there. Packagist has nothing to upload. The push
-# uses a deploy key with write access to that repository only.
-# Starts only when you run it from the Actions tab, on main. A version that's
-# already published is skipped, so bump the version to release.
+# Packagist publishes flagbearer/flagbearer from this repository's root
+# composer.json and its vX.Y.Z tags, so a release is that tag on a commit that
+# passes the tests. Packagist picks the tag up through its GitHub hook; nothing
+# is uploaded. Starts only when you run it from the Actions tab, on main. A
+# version that's already tagged is skipped, so bump the version to release.
 on: workflow_dispatch
 
 permissions:
@@ -20,8 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
-      tags: ${{ steps.version.outputs.tags }}
-      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -31,71 +30,28 @@ jobs:
           php-version: "8.5"
           extensions: curl, mbstring
           tools: composer
+      - run: composer validate --strict --no-check-publish
       - run: composer install --quiet && vendor/bin/phpunit && vendor/bin/phpstan analyse
         working-directory: php
       - id: version
-        run: |
-          version=$(sed -nE "s/.*VERSION = '(.*)';/\1/p" php/src/Version.php)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tags=php-v$version" >> "$GITHUB_OUTPUT"
+        run: echo "tag=v$(sed -nE "s/.*VERSION = '(.*)';/\1/p" php/src/Version.php)" >> "$GITHUB_OUTPUT"
 
-  publish:
-    needs: build
-    outputs:
-      tags: ${{ steps.published.outputs.tags }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: packagist
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Push php/ to flagbearer-dev/php-sdk and tag it
-        id: published
-        env:
-          TAG: ${{ needs.build.outputs.tags }}
-          DEPLOY_KEY: ${{ secrets.PHP_SDK_DEPLOY_KEY }}
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/php_sdk && chmod 600 ~/.ssh/php_sdk
-          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
-          export GIT_SSH_COMMAND="ssh -i ~/.ssh/php_sdk -o IdentitiesOnly=yes"
-          remote=git@github.com:flagbearer-dev/php-sdk.git
-          git subtree split --prefix=php -b php-split
-          git push "$remote" php-split:main
-          if git ls-remote --exit-code --tags "$remote" "refs/tags/v$VERSION" >/dev/null; then
-            echo "v$VERSION already exists in php-sdk"
-          else
-            git tag "v$VERSION" php-split
-            git push "$remote" "v$VERSION"
-            echo "tags=$TAG" >> "$GITHUB_OUTPUT"
-          fi
-
-  # Marks the commit each version was published from, like needs.build.outputs.tags. Never moves a tag that exists.
+  # Packagist reads bare vX.Y.Z tags in this repository as PHP versions.
   tag:
-    needs: [build, publish]
-    if: needs.publish.outputs.tags != ''
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: true
       - name: Tag the release
         env:
-          TAGS: ${{ needs.publish.outputs.tags }}
+          TAG: ${{ needs.build.outputs.tag }}
         run: |
-          for tag in $TAGS; do
-            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
-              echo "$tag already exists"
-            else
-              git tag "$tag" "$GITHUB_SHA"
-              git push origin "$tag"
-            fi
-          done
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG already exists"
+          else
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "$TAG"
+          fi

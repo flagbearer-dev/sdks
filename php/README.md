@@ -28,16 +28,11 @@ one fresh PHP request per HTTP request.
 
 ## Releasing
 
-Packagist publishes from a public git repository: it reads `composer.json` and
-the tags from the repository it's pointed at, and has nothing to upload. So
-releasing needs this package in a public repository of its own, with
-`composer.json` at its root (Packagist can't read a package from a
-subdirectory). Then:
+Packagist publishes `flagbearer/flagbearer` from the root `composer.json` of this
+repository and its `vX.Y.Z` tags; nothing is uploaded. `.gitattributes` keeps
+everything but the PHP SDK out of the archives Composer downloads.
 
 1. Bump `Version::VERSION` in `src/Version.php` and merge.
-2. Copy `php/` to its own public repository (a read-only split of this one) and
-   tag it there, such as `v0.1.0`.
-3. Packagist picks up the tag through its GitHub hook, or on "Update" in its UI.
-
-The name `flagbearer/flagbearer` is free on Packagist; submitting the public
-repository there claims it.
+2. Run the **Publish PHP** workflow from the Actions tab. It runs the tests and
+   tags the commit `vX.Y.Z`.
+3. Packagist picks up the tag through its GitHub hook, or on **Update** in its UI.
