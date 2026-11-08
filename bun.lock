@@ -34,6 +34,20 @@
         "@types/node": "^26.6.3",
       },
     },
+    "js/react-native": {
+      "name": "@flagbearer/react-native",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@flagbearer/sdk-core": "workspace:*",
+        "@types/bun": "latest",
+      },
+      "peerDependencies": {
+        "react-native": ">=0.72",
+      },
+      "optionalPeers": [
+        "react-native",
+      ],
+    },
     "js/web": {
       "name": "@flagbearer/web",
       "version": "0.2.1",
@@ -53,6 +67,8 @@
     "@flagbearer/evaluator": ["@flagbearer/evaluator@workspace:js/evaluator"],
 
     "@flagbearer/node": ["@flagbearer/node@workspace:js/node"],
+
+    "@flagbearer/react-native": ["@flagbearer/react-native@workspace:js/react-native"],
 
     "@flagbearer/sdk-core": ["@flagbearer/sdk-core@workspace:js/core"],
 

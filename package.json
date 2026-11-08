@@ -8,7 +8,7 @@
   "scripts": {
     "test": "bun run --filter './js/*' test",
     "typecheck": "bun run --filter './js/*' typecheck",
-    "build": "bun run --filter @flagbearer/node build && bun run --filter @flagbearer/web build"
+    "build": "bun run --filter @flagbearer/node build && bun run --filter @flagbearer/web build && bun run --filter @flagbearer/react-native build"
   },
   "devDependencies": {
     "typescript": "^7.0.2"

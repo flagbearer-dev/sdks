@@ -17,9 +17,10 @@ Keys, users, defaults, exposures and React are covered at
 
 ## Develop
 
-Refresh coordination and SDK-facing types/validators live in the internal
-`@flagbearer/sdk-core` package. This SDK keeps browser-specific fetching and
-`EventSource` handling, validating responses/events with those shared guards.
+The client itself (`createClient`: flags, users, subscriptions, the anonymous
+ID and the optional flag cache) lives in the internal `@flagbearer/sdk-core`
+package, shared with `@flagbearer/react-native`. This SDK supplies the browser
+pieces: `localStorage`, page lifecycle events and `EventSource`.
 The browser build bundles the core and validation code without an additional
 runtime dependency or validation library. It does not import application/admin
 endpoint contracts.

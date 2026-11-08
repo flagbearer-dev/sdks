@@ -3,6 +3,7 @@ import type {
   EvaluationDetails,
   EvaluationUser,
 } from "./types.js";
+import { randomId, timeoutSignal } from "./platform.js";
 
 const WINDOW_MS = 30_000;
 // One upload per bucket; sending more often only splits a bucket into more uploads.
@@ -19,13 +20,13 @@ type SealedBatch = {
 };
 
 export function createExposureReporter(options: {
-  url: URL;
+  url: string | URL;
   key: string;
   sdk: string;
   sdkVersion: string;
   appVersion?: string;
 }) {
-  const reporterId = crypto.randomUUID();
+  const reporterId = randomId();
   const active = new Map<
     string,
     { user: EvaluationUser; event: CompactExposure }
@@ -107,7 +108,7 @@ export function createExposureReporter(options: {
       const userId = JSON.stringify([user.key, user.email]);
       let batch = open.get(userId);
       if (!batch || batch.events.length >= BATCH_SIZE) {
-        batch = { batchId: crypto.randomUUID(), user, events: [] };
+        batch = { batchId: randomId(), user, events: [] };
         open.set(userId, batch);
         sealed.push(batch);
       }
@@ -128,7 +129,7 @@ export function createExposureReporter(options: {
     while (sealed.length > 0 || droppedChecks > reportedDroppedChecks) {
       // Only lost checks to report: an empty batch carries the count.
       const batch = sealed[0] ?? {
-        batchId: crypto.randomUUID(),
+        batchId: randomId(),
         user: {},
         events: [],
       };
@@ -137,66 +138,71 @@ export function createExposureReporter(options: {
         0,
       );
       const dropped = droppedChecks;
-      const response = await fetch(options.url, {
-        method: "POST",
-        credentials: "omit",
-        redirect: "error",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${options.key}`,
-        },
-        body: JSON.stringify({
-          batchId: batch.batchId,
-          reporterId,
-          user: batch.user,
-          events: batch.events,
-          droppedChecks: dropped,
-          sdk: options.sdk,
-          sdkVersion: options.sdkVersion,
-          appVersion: options.appVersion?.slice(0, 100),
-        }),
-        signal: AbortSignal.timeout(10_000),
-        keepalive: batch.events.length < 10,
-      });
-      if (!response.ok) {
-        const retryAfter = Number(response.headers.get("Retry-After"));
-        if (Number.isFinite(retryAfter) && retryAfter > 0) {
-          retryAt = Math.max(
-            retryAt,
-            Date.now() + Math.min(retryAfter, 3600) * 1000,
-          );
+      const timeout = timeoutSignal(10_000);
+      try {
+        const response = await fetch(String(options.url), {
+          method: "POST",
+          credentials: "omit",
+          redirect: "error",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${options.key}`,
+          },
+          body: JSON.stringify({
+            batchId: batch.batchId,
+            reporterId,
+            user: batch.user,
+            events: batch.events,
+            droppedChecks: dropped,
+            sdk: options.sdk,
+            sdkVersion: options.sdkVersion,
+            appVersion: options.appVersion?.slice(0, 100),
+          }),
+          signal: timeout.signal,
+          keepalive: batch.events.length < 10,
+        });
+        if (!response.ok) {
+          const retryAfter = Number(response.headers.get("Retry-After"));
+          if (Number.isFinite(retryAfter) && retryAfter > 0) {
+            retryAt = Math.max(
+              retryAt,
+              Date.now() + Math.min(retryAfter, 3600) * 1000,
+            );
+          }
+          if (
+            response.status >= 400 &&
+            response.status < 500 &&
+            response.status !== 429
+          ) {
+            droppedChecks += checks;
+            settle(batch);
+            retryAt = Date.now() + 60_000;
+          }
+          throw new Error(`Exposure upload failed (${response.status})`);
         }
+        const receipt: unknown = await response.json();
         if (
-          response.status >= 400 &&
-          response.status < 500 &&
-          response.status !== 429
+          typeof receipt !== "object" ||
+          receipt === null ||
+          !("accepted" in receipt) ||
+          typeof receipt.accepted !== "number" ||
+          !Number.isSafeInteger(receipt.accepted) ||
+          receipt.accepted < 0 ||
+          receipt.accepted > batch.events.length ||
+          !("rejectedChecks" in receipt) ||
+          typeof receipt.rejectedChecks !== "number" ||
+          !Number.isSafeInteger(receipt.rejectedChecks) ||
+          receipt.rejectedChecks < 0 ||
+          receipt.rejectedChecks > checks
         ) {
-          droppedChecks += checks;
-          settle(batch);
-          retryAt = Date.now() + 60_000;
+          throw new Error("Invalid exposure upload receipt");
         }
-        throw new Error(`Exposure upload failed (${response.status})`);
+        droppedChecks += receipt.rejectedChecks;
+        settle(batch);
+        reportedDroppedChecks = Math.max(reportedDroppedChecks, dropped);
+      } finally {
+        timeout.clear();
       }
-      const receipt: unknown = await response.json();
-      if (
-        typeof receipt !== "object" ||
-        receipt === null ||
-        !("accepted" in receipt) ||
-        typeof receipt.accepted !== "number" ||
-        !Number.isSafeInteger(receipt.accepted) ||
-        receipt.accepted < 0 ||
-        receipt.accepted > batch.events.length ||
-        !("rejectedChecks" in receipt) ||
-        typeof receipt.rejectedChecks !== "number" ||
-        !Number.isSafeInteger(receipt.rejectedChecks) ||
-        receipt.rejectedChecks < 0 ||
-        receipt.rejectedChecks > checks
-      ) {
-        throw new Error("Invalid exposure upload receipt");
-      }
-      droppedChecks += receipt.rejectedChecks;
-      settle(batch);
-      reportedDroppedChecks = Math.max(reportedDroppedChecks, dropped);
     }
     failures = 0;
   }

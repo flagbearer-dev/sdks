@@ -12,3 +12,17 @@ export type { Clock } from "./clock.js";
 export { createDebugLogger } from "./debug.js";
 
 export { createExposureReporter } from "./exposures.js";
+export {
+  createClient,
+  type Client,
+  type ClientOptions,
+  type FlagsSnapshot,
+  type FlagsStatus,
+  type LifecycleEvents,
+  type Platform,
+  type Storage,
+  type Stream,
+  type StreamHandlers,
+  type User,
+} from "./client.js";
+export { randomId, timeoutSignal } from "./platform.js";

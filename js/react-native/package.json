@@ -1,0 +1,52 @@
+{
+  "name": "@flagbearer/react-native",
+  "version": "0.1.0",
+  "description": "Flagbearer React Native SDK",
+  "license": "MIT",
+  "homepage": "https://flagbearer.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flagbearer-dev/sdks.git",
+    "directory": "js/react-native"
+  },
+  "keywords": [
+    "feature-flags",
+    "flagbearer",
+    "react-native"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --target browser --format esm --external react-native --outdir ./dist --define __FLAGBEARER_SDK_VERSION__=\\\"$npm_package_version\\\" && tsc -p tsconfig.json --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
+    "test": "bun test ./tests",
+    "prepack": "bun run build"
+  },
+  "peerDependencies": {
+    "react-native": ">=0.72"
+  },
+  "peerDependenciesMeta": {
+    "react-native": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@flagbearer/sdk-core": "workspace:*",
+    "@types/bun": "latest"
+  }
+}

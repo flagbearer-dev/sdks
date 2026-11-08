@@ -86,6 +86,16 @@ Keep `applySnapshot` synchronous and non-throwing; it should replace the SDK's
 last-good snapshot. The SDK owns that snapshot, response validation, streaming,
 and any persistence. The core does not open or reconnect a stream itself.
 
+## Shared client
+
+`createClient(options, platform)` is the whole browser-style client: flags,
+users, subscriptions, exposures, the anonymous ID and the optional flag cache.
+`@flagbearer/web` and `@flagbearer/react-native` call it with a `Platform` that
+supplies what differs: the SDK name, storage, lifecycle events and an optional
+stream. Without a stream, the client polls. Core uses no browser-only globals:
+`randomId()` and `timeoutSignal()` stand in for `crypto.randomUUID` and
+`AbortSignal.timeout`, which React Native lacks.
+
 This package shares implementation between TypeScript SDKs only. Future Python
 or Go SDKs will implement the same HTTP/streaming behavior in their own languages.
 
