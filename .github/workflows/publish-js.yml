@@ -1,6 +1,6 @@
 name: Publish JS
 
-# Publishes @flagbearer/node and @flagbearer/web to npm through trusted
+# Publishes @flagbearer/node, @flagbearer/web and @flagbearer/react-native to npm through trusted
 # publishing, so no npm token is stored here.
 # Starts only when you run it from the Actions tab, on main. A version that's
 # already published is skipped, so bump the version to release.
@@ -35,7 +35,7 @@ jobs:
       - run: bun run test
       - run: scripts/verify-js-packages.sh "$RUNNER_TEMP/js-packages"
       - id: version
-        run: echo "tags=node-v$(jq -r .version js/node/package.json) web-v$(jq -r .version js/web/package.json)" >> "$GITHUB_OUTPUT"
+        run: echo "tags=node-v$(jq -r .version js/node/package.json) web-v$(jq -r .version js/web/package.json) react-native-v$(jq -r .version js/react-native/package.json)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: js-packages

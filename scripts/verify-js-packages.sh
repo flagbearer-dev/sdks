@@ -9,7 +9,7 @@ consumer="$(mktemp -d)"
 trap 'rm -rf "$consumer"' EXIT
 
 mkdir -p "$out"
-for package in web node; do
+for package in web node react-native; do
   (cd "$root/js/$package" && bun pm pack --destination "$out")
 done
 
@@ -36,10 +36,16 @@ JSON
 cat > consumer.ts <<'TS'
 import { init as initNode } from "@flagbearer/node";
 import { init as initWeb } from "@flagbearer/web";
+import { init as initReactNative } from "@flagbearer/react-native";
 
 export const browser: boolean = initWeb({
   clientKey: "fbc_test",
   user: { key: "1" },
+}).isEnabled("flag", false);
+// Typechecks only: running it needs React Native.
+export const app: boolean = initReactNative({
+  clientKey: "fbc_test",
+  storage: null,
 }).isEnabled("flag", false);
 export const server: boolean = initNode({ key: "fbs_test" }).isEnabled(
   "flag",
