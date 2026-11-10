@@ -35,12 +35,14 @@
   },
   "scripts": {
     "build": "bun build ./src/index.ts --target node --format esm --outdir ./dist --define __FLAGBEARER_SDK_VERSION__=\\\"$npm_package_version\\\" && tsc -p tsconfig.json --emitDeclarationOnly",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json && tsc --noEmit -p type-tests/typed && tsc --noEmit -p type-tests/untyped",
+    "test": "bun test ./tests",
     "prepack": "bun run build"
   },
   "devDependencies": {
     "@flagbearer/evaluator": "workspace:*",
     "@flagbearer/sdk-core": "workspace:*",
+    "@types/bun": "latest",
     "@types/node": "^26.6.3"
   }
 }

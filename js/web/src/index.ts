@@ -28,6 +28,12 @@ export type ClientOptions = {
 
 export type FlagsSnapshot = Readonly<Record<string, boolean>>;
 
+// Empty until a file from `flagbearer generate types` fills it in. Then flag
+// keys are checked and autocomplete; without one, any string works.
+export interface Flags {}
+
+export type FlagKey = keyof Flags extends never ? string : keyof Flags & string;
+
 // loading: no flags yet for the current user, so isEnabled returns defaults.
 // ready: the current user's flags have arrived. They stay ready through later
 // failed refreshes, keeping the last flags.
@@ -36,7 +42,10 @@ export type FlagsStatus = "loading" | "ready" | "failed";
 
 export type Client = {
   sync(): Promise<void>;
-  isEnabled(flag: string, defaultValue?: boolean): boolean;
+  isEnabled(flag: FlagKey, defaultValue?: boolean): boolean;
+  // Every flag's current value, for error reports. Doesn't count as checking
+  // them.
+  allFlags(): { [Key in FlagKey]?: boolean };
   identify(nextUser: User): Promise<void>;
   subscribe(listener: () => void): () => void;
   getSnapshot(): FlagsSnapshot;

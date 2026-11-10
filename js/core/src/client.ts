@@ -209,6 +209,11 @@ export function createClient(
     }
   }
 
+  // A plain copy for error reports. Like getSnapshot, it reports no exposures.
+  function allFlags(): Record<string, boolean> {
+    return { ...snapshot };
+  }
+
   function isEnabled(flag: string, defaultValue = false): boolean {
     const value = Object.hasOwn(snapshot, flag)
       ? snapshot[flag]!
@@ -456,6 +461,7 @@ export function createClient(
   return {
     sync,
     isEnabled,
+    allFlags,
     identify,
     subscribe,
     getSnapshot,

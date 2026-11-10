@@ -20,6 +20,12 @@ export type SdkOptions = {
 
 export type EvaluationUser = { key?: string; email?: string };
 
+// Empty until a file from `flagbearer generate types` fills it in. Then flag
+// keys are checked and autocomplete; without one, any string works.
+export interface Flags {}
+
+export type FlagKey = keyof Flags extends never ? string : keyof Flags & string;
+
 const DEFAULT_URL = "https://sdk.flagbearer.dev";
 
 export function init({
@@ -92,28 +98,41 @@ export function init({
     onPermanentFailure: () => stream?.close(),
   });
 
-  function isEnabled(
-    flag: string,
-    user: EvaluationUser,
-    defaultValue = false,
-  ): boolean {
-    let details;
+  function evaluate(flag: string, user: EvaluationUser, defaultValue: boolean) {
     try {
-      details = evaluateFlag(
+      return evaluateFlag(
         rules.get(flag),
         user,
         configurationVersion,
         defaultValue,
       );
     } catch {
-      details = {
+      return {
         value: defaultValue,
         reason: "fallback" as const,
         configurationVersion,
       };
     }
+  }
+
+  function isEnabled(
+    flag: FlagKey,
+    user: EvaluationUser,
+    defaultValue = false,
+  ): boolean {
+    const details = evaluate(flag, user, defaultValue);
     reporter.record(flag, user, details);
     return details.value;
+  }
+
+  // Every flag's value for this user, for error reports. Doesn't count as
+  // checking them, so it reports no exposures.
+  function allFlags(user: EvaluationUser): { [Key in FlagKey]?: boolean } {
+    const values: Record<string, boolean> = {};
+    for (const flag of rules.keys()) {
+      values[flag] = evaluate(flag, user, false).value;
+    }
+    return values;
   }
 
   function close() {
@@ -137,7 +156,13 @@ export function init({
   });
   coordinator.refreshInBackground();
 
-  return { sync: coordinator.sync, isEnabled, flush: reporter.flush, close };
+  return {
+    sync: coordinator.sync,
+    isEnabled,
+    allFlags,
+    flush: reporter.flush,
+    close,
+  };
 }
 
 export type Client = ReturnType<typeof init>;
