@@ -1,5 +1,5 @@
 import {
-  checkResponse,
+  checkResponseWithReason,
   createDebugLogger,
   isVersionEvent,
   RefreshError,
@@ -74,7 +74,7 @@ export function createVersionStream(options: StreamOptions) {
         cache: "no-store",
         redirect: "error",
       });
-      checkResponse(response);
+      await checkResponseWithReason(response);
       const contentType = response.headers
         .get("content-type")
         ?.split(";")[0]
@@ -156,7 +156,9 @@ export function createVersionStream(options: StreamOptions) {
     options.onDisconnect();
     if (failure instanceof RefreshError && !failure.retryable) {
       // Polling remains available; the next ruleset request also checks the key.
-      console.error("Flagbearer stream stopped; using polling", failure);
+      console.error(
+        `[Flagbearer] Live updates have stopped, so flag changes arrive by polling. ${failure.message}`,
+      );
       return;
     }
     reconnect(failure);

@@ -69,6 +69,12 @@ function browserPlatform(): Platform {
     sdk: "web",
     sdkVersion: SDK_VERSION,
     background: isBrowser,
+    // Some embedded pages have a window with no location.
+    development:
+      isBrowser &&
+      /^(localhost|127\.0\.0\.1|\[::1\]|.+\.localhost)$/.test(
+        window.location?.hostname ?? "",
+      ),
     storage: isBrowser ? browserStorage : undefined,
     cacheFlags: false,
     // Every way a page comes back: tab shown, restored from the back/forward

@@ -63,6 +63,7 @@ export function init(options: ClientOptions): Client {
     sdk: "react-native",
     sdkVersion: SDK_VERSION,
     background: true,
+    development: typeof __DEV__ !== "undefined" && __DEV__,
     cacheFlags: true,
     watchLifecycle({ resume, hide, leave }) {
       // "inactive" is brief, like the iOS app switcher, so it changes nothing.

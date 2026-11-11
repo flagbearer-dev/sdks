@@ -34,8 +34,16 @@ export function init({
   debug = false,
   appVersion,
 }: SdkOptions) {
-  if (!key || /\s/.test(key))
-    throw new Error("A nonempty server SDK key is required");
+  if (!key || /\s/.test(key)) {
+    throw new Error(
+      "Flagbearer needs a server key (fbs_...) with no spaces. Create one on the environment's page in the Flagbearer dashboard.",
+    );
+  }
+  if (key.startsWith("fbc_")) {
+    throw new Error(
+      "This is a Flagbearer client key (fbc_). @flagbearer/node needs a server key (fbs_). Create one on the environment's page in the Flagbearer dashboard.",
+    );
+  }
 
   const baseUrl = new URL(url);
   if (baseUrl.protocol !== "http:" && baseUrl.protocol !== "https:") {
@@ -58,6 +66,7 @@ export function init({
   let stream: ReturnType<typeof createVersionStream> | undefined;
   let hasConnected = false;
   let closed = false;
+  const warnedFlags = new Set<string>();
 
   const coordinator = createRefreshCoordinator({
     debug,
@@ -120,9 +129,20 @@ export function init({
     user: EvaluationUser,
     defaultValue = false,
   ): boolean {
+    if (environmentId !== undefined && !rules.has(flag)) warnUnknown(flag);
     const details = evaluate(flag, user, defaultValue);
     reporter.record(flag, user, details);
     return details.value;
+  }
+
+  // Once per flag: a misspelled or deleted flag otherwise looks like one
+  // that's off.
+  function warnUnknown(flag: string) {
+    if (warnedFlags.has(flag) || warnedFlags.size >= 100) return;
+    warnedFlags.add(flag);
+    console.warn(
+      `[Flagbearer] No flag "${flag}" exists in this environment, so isEnabled returns its default. Check the spelling, or create the flag.`,
+    );
   }
 
   // Every flag's value for this user, for error reports. Doesn't count as

@@ -2,11 +2,7 @@
 // React Native installed.
 declare module "react-native" {
   type AppStateStatus =
-    | "active"
-    | "background"
-    | "inactive"
-    | "unknown"
-    | "extension";
+    "active" | "background" | "inactive" | "unknown" | "extension";
 
   export const AppState: {
     currentState: AppStateStatus | null;
@@ -16,3 +12,6 @@ declare module "react-native" {
     ): { remove(): void };
   };
 }
+
+// True in a development build. React Native defines it as a global.
+declare const __DEV__: boolean | undefined;

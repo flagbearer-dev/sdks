@@ -69,6 +69,10 @@ export type Platform = {
   sdkVersion: string;
   // Poll and retry on its own. Off outside browsers and apps.
   background: boolean;
+  // The developer's own machine or build, where warnings about their code
+  // (a flag that doesn't exist) are worth printing. Elsewhere the console
+  // belongs to their users.
+  development: boolean;
   storage?: () => Storage | undefined;
   cacheFlags: boolean;
   watchLifecycle?: (events: LifecycleEvents) => () => void;
@@ -119,6 +123,20 @@ async function loadAnonymousId(storage: Storage | undefined) {
   }
 }
 
+// What's wrong with a client key, when that can be told without a request.
+function clientKeyProblem(key: unknown) {
+  if (typeof key !== "string" || !key) {
+    return "No client key was given. Pass your environment's client key (fbc_...) as clientKey.";
+  }
+  if (/\s/.test(key)) {
+    return "The client key contains a space or line break. Copy it again from the Flagbearer dashboard.";
+  }
+  if (key.startsWith("fbs_")) {
+    return "This is a server key (fbs_), which is secret and must not ship in an app. Use the environment's client key (fbc_) instead.";
+  }
+  return undefined;
+}
+
 export function createClient(
   {
     clientKey,
@@ -135,6 +153,10 @@ export function createClient(
   // Built as strings: React Native's URL doesn't support everything browsers do.
   const origin = /^https?:\/\/[^/?#]+/i.exec(url)?.[0];
   if (!origin) throw new Error("Flagbearer url must use HTTP or HTTPS");
+
+  // A bad key doesn't throw: an app keeps running on default values, and the
+  // console says why. No request is made with it.
+  const keyProblem = clientKeyProblem(clientKey);
 
   const evaluateUrl = `${origin}/v1/evaluate`;
   const streamUrl = `${origin}/v1/stream?clientKey=${encodeURIComponent(clientKey)}`;
@@ -163,6 +185,10 @@ export function createClient(
   let hasConnected = false;
   let lastStreamMessageAt = 0;
   let hiddenTimer: ReturnType<typeof setTimeout> | undefined;
+  // True while `details` lists every flag in the environment, so a flag
+  // missing from it doesn't exist.
+  let knowsEveryFlag = false;
+  const warnedFlags = new Set<string>();
 
   // Plain data: reading it doesn't report exposures. isEnabled does.
   function getSnapshot(): FlagsSnapshot {
@@ -218,8 +244,26 @@ export function createClient(
     const value = Object.hasOwn(snapshot, flag)
       ? snapshot[flag]!
       : defaultValue;
+    if (
+      (debug || platform.development) &&
+      knowsEveryFlag &&
+      !Object.hasOwn(details, flag) &&
+      !Object.hasOwn(snapshot, flag)
+    ) {
+      warnUnknown(flag);
+    }
     report(flag, value);
     return value;
+  }
+
+  // Once per flag, in development or with debug on: a misspelled or deleted
+  // flag otherwise looks like one that's off.
+  function warnUnknown(flag: string) {
+    if (warnedFlags.has(flag) || warnedFlags.size >= 100) return;
+    warnedFlags.add(flag);
+    console.warn(
+      `[Flagbearer] No flag "${flag}" exists in this environment, so isEnabled returns its default. Check the spelling, or create the flag.`,
+    );
   }
 
   function report(flag: string, value: boolean) {
@@ -281,6 +325,7 @@ export function createClient(
     const coordinator = createRefreshCoordinator({
       debug,
       async fetchSnapshot(signal) {
+        if (keyProblem) throw new RefreshError(keyProblem, false);
         const anonymous = await anonymousId;
         const response = await fetch(evaluateUrl, {
           method: "POST",
@@ -309,6 +354,7 @@ export function createClient(
         fresh = true;
         configurationVersion = result.version;
         details = result.details ?? {};
+        knowsEveryFlag = result.details !== undefined;
         publish(result.flags);
         setStatus("ready");
         void writeCache(currentUser, result);
@@ -349,6 +395,7 @@ export function createClient(
     active.close();
     currentUser = { ...nextUser };
     details = {};
+    knowsEveryFlag = false;
     configurationVersion = null;
     active = createCoordinator(nextUser);
     active.setStreaming({
@@ -390,7 +437,7 @@ export function createClient(
   }
 
   function connectStream() {
-    if (closed || stream || !platform.openStream) return;
+    if (closed || stream || keyProblem || !platform.openStream) return;
     try {
       log("Stream connecting");
       // A new connection gets the full silence allowance before it's replaced.

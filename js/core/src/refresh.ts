@@ -1,6 +1,6 @@
 import { realClock, type Clock } from "./clock.js";
 import { createDebugLogger } from "./debug.js";
-import { isVersion } from "./validation.js";
+import { isRecord, isVersion } from "./validation.js";
 
 export type VersionedSnapshot = { version: number };
 
@@ -44,14 +44,28 @@ function retryAfter(header: string | null, now: number): number {
   return Number.isFinite(delay) ? Math.max(0, delay) : 0;
 }
 
+// The server's own explanation of a refused request, when it sent one.
+async function serverMessage(response: Response) {
+  try {
+    const body: unknown = await response.json();
+    return isRecord(body) && typeof body.message === "string"
+      ? body.message.slice(0, 500)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // JSON and streaming adapters share HTTP retry classification and Retry-After.
+// `reason` is the server's explanation, added to the error when there is one.
 export function checkResponse(
   response: Response,
   clock: Clock = realClock,
+  reason?: string,
 ): void {
   if (!response.ok) {
     throw new RefreshError(
-      `Flagbearer request failed: ${response.status}`,
+      `Flagbearer request failed: ${response.status}${reason ? `. ${reason}` : ""}`,
       response.status === 408 ||
         response.status === 429 ||
         response.status >= 500,
@@ -60,12 +74,22 @@ export function checkResponse(
   }
 }
 
+// checkResponse, with the server's explanation of a refusal when it sent one.
+export async function checkResponseWithReason(
+  response: Response,
+  clock: Clock = realClock,
+): Promise<void> {
+  if (response.ok) return;
+  const reason = await serverMessage(response);
+  checkResponse(response, clock, reason);
+}
+
 export async function readJsonResponse(
   response: Response,
   signal: AbortSignal,
   clock: Clock = realClock,
 ): Promise<unknown> {
-  checkResponse(response, clock);
+  await checkResponseWithReason(response, clock);
   try {
     return await response.json();
   } catch (error) {
@@ -271,7 +295,11 @@ export function createRefreshCoordinator<T extends VersionedSnapshot>(
       if (stopped) return;
       options.onRefreshFailed?.(error);
       if (error instanceof RefreshError && !error.retryable) {
-        debug("Automatic refresh stopped after permanent failure");
+        // Said once, without debug on: retrying can't fix this, and silent
+        // defaults look like flags that are simply off.
+        console.error(
+          `[Flagbearer] Flags have stopped updating and keep their current or default values until this is fixed. ${error.message}`,
+        );
         automaticBlocked = true;
         streaming = false;
         clearRetry();
@@ -304,9 +332,11 @@ export function createRefreshCoordinator<T extends VersionedSnapshot>(
       inFlight !== undefined
     )
       return;
-    void begin().catch((error) =>
-      console.error("Flagbearer sync failed", error),
-    );
+    void begin().catch((error) => {
+      // A permanent failure has already been explained by run().
+      if (error instanceof RefreshError && !error.retryable) return;
+      console.error("Flagbearer sync failed", error);
+    });
   }
 
   function sync(): Promise<void> {

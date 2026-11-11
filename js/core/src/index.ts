@@ -1,6 +1,7 @@
 export {
   createRefreshCoordinator,
   checkResponse,
+  checkResponseWithReason,
   readJsonResponse,
   RefreshError,
   type RefreshOptions,

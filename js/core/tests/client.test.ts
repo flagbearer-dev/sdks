@@ -11,7 +11,7 @@ import { createClient, type Platform, type Storage } from "../src/client";
 import { deferred, settlePromises } from "./test-utils";
 
 // Stands in for the SDK server. Each test says how /v1/evaluate answers.
-type Answer = Record<string, boolean> | "fail" | "hang";
+type Answer = Record<string, boolean> | "fail" | "hang" | Response;
 let answer: (email: string | undefined) => Answer;
 let uploads: { batchId: string; reporterId: string }[];
 const originalFetch = globalThis.fetch;
@@ -20,7 +20,13 @@ const clients: ReturnType<typeof createClient>[] = [];
 beforeEach(() => {
   uploads = [];
   answer = () => ({});
-  spyOn(console, "error").mockImplementation(() => {});
+  // mockClear: a spy on console outlives the test that made it.
+  spyOn(console, "error")
+    .mockClear()
+    .mockImplementation(() => {});
+  spyOn(console, "warn")
+    .mockClear()
+    .mockImplementation(() => {});
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(String(input)).pathname;
     const body = JSON.parse(String(init?.body));
@@ -31,6 +37,7 @@ beforeEach(() => {
     const result = answer(body.userEmail);
     if (result === "fail") throw new TypeError("Network down");
     if (result === "hang") return new Promise<Response>(() => {});
+    if (result instanceof Response) return result;
     return Response.json({ version: 1, flags: result, details: {} });
   }) as typeof fetch;
 });
@@ -67,6 +74,7 @@ function platform(overrides: Partial<Platform> = {}): Platform {
     sdk: "web",
     sdkVersion: "0.0.0",
     background: false,
+    development: true,
     cacheFlags: true,
     ...overrides,
   };
@@ -78,11 +86,15 @@ const bea = { key: "2", email: "bea@example.com" };
 async function start(
   storage: Storage | null | undefined,
   user = andrew,
-  options: { platform?: Partial<Platform>; cacheFlags?: boolean } = {},
+  options: {
+    platform?: Partial<Platform>;
+    cacheFlags?: boolean;
+    clientKey?: string;
+  } = {},
 ) {
   const client = createClient(
     {
-      clientKey: "fbc_test",
+      clientKey: options.clientKey ?? "fbc_test",
       url: "http://sdk.test",
       user,
       storage,
@@ -264,4 +276,62 @@ test("works without crypto.randomUUID or AbortSignal.timeout, as in React Native
   }
   expect(typeof crypto.randomUUID).toBe("function");
   expect(typeof AbortSignal.timeout).toBe("function");
+});
+
+test("a server key is never sent, and the console says to use a client key", async () => {
+  const fetched = spyOn(globalThis, "fetch");
+
+  const client = await start(null, andrew, { clientKey: "fbs_secret" });
+
+  expect(fetched).not.toHaveBeenCalled();
+  expect(client.getStatus()).toBe("failed");
+  expect(client.isEnabled("new-checkout", false)).toBe(false);
+  expect(console.error).toHaveBeenCalledTimes(1);
+  expect(console.error).toHaveBeenCalledWith(
+    expect.stringContaining("This is a server key (fbs_)"),
+  );
+});
+
+test("a refused key is explained once, with the server's reason", async () => {
+  answer = () =>
+    Response.json(
+      {
+        code: "INVALID_CREDENTIALS",
+        message: "This SDK key isn't recognized.",
+      },
+      { status: 401 },
+    );
+
+  const client = await start(null);
+
+  expect(client.getStatus()).toBe("failed");
+  expect(console.error).toHaveBeenCalledTimes(1);
+  expect(console.error).toHaveBeenCalledWith(
+    expect.stringContaining("401. This SDK key isn't recognized."),
+  );
+  await expect(client.sync()).rejects.toThrow("This SDK key isn't recognized.");
+});
+
+test("checking a flag that doesn't exist warns once, and an existing flag never does", async () => {
+  answer = () => ({ "new-checkout": true });
+  const client = await start(null);
+
+  client.isEnabled("new-checkout", false);
+  client.isEnabled("new-checkotu", false);
+  client.isEnabled("new-checkotu", false);
+
+  expect(console.warn).toHaveBeenCalledTimes(1);
+  expect(console.warn).toHaveBeenCalledWith(
+    expect.stringContaining('No flag "new-checkotu" exists'),
+  );
+});
+
+test("outside development, a flag that doesn't exist warns nobody", async () => {
+  const client = await start(null, andrew, {
+    platform: { development: false },
+  });
+
+  client.isEnabled("new-checkotu", false);
+
+  expect(console.warn).not.toHaveBeenCalled();
 });
