@@ -1,0 +1,7 @@
+{
+  "name": "@flagbearer/sdk-android",
+  "private": true,
+  "scripts": {
+    "test:sdk": "./gradlew testDebugUnitTest --no-daemon -q"
+  }
+}

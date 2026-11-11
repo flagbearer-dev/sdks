@@ -29,6 +29,31 @@ jobs:
       - run: bun run test
       - run: bun run build
 
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: ./gradlew testDebugUnitTest assembleRelease --no-daemon
+        working-directory: android
+
+  # macOS, since the SDK uses Apple's Foundation and builds for iOS.
+  swift:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: swift test
+      - run: xcodebuild -scheme Flagbearer -destination 'generic/platform=iOS Simulator' build
+
   # Each server SDK's own tests, with only its toolchain.
   unit:
     runs-on: ubuntu-latest

@@ -17,6 +17,15 @@ __pycache__/
 java/build/
 java/.gradle/
 
+# Android
+android/build/
+android/.gradle/
+android/local.properties
+
+# Swift
+.build/
+.swiftpm/
+
 # .NET
 dotnet/**/bin/
 dotnet/**/obj/

@@ -1,0 +1,56 @@
+name: Release Swift
+
+# Swift Package Manager installs the iOS SDK straight from this repository by
+# version tag, so a release is the tag X.Y.Z on a commit that passes the tests.
+# The tag has no prefix, because Swift Package Manager only reads plain
+# version tags.
+# Starts only when you run it from the Actions tab, on main. A version that's
+# already tagged is skipped, so bump the version to release.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-swift
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    timeout-minutes: 20
+    outputs:
+      tags: ${{ steps.version.outputs.tags }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: swift test
+      - run: xcodebuild -scheme Flagbearer -destination 'generic/platform=iOS Simulator' build
+      - id: version
+        run: echo "tags=$(sed -nE 's/^let flagbearerSDKVersion = "(.*)"/\1/p' swift/Sources/Flagbearer/Flagbearer.swift)" >> "$GITHUB_OUTPUT"
+
+  # Marks the released commit, like needs.build.outputs.tags. Never moves a tag that exists.
+  tag:
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: true
+      - name: Tag the release
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+        run: |
+          for tag in $TAGS; do
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+              echo "$tag already exists"
+            else
+              git tag "$tag" "$GITHUB_SHA"
+              git push origin "$tag"
+            fi
+          done
