@@ -68,6 +68,25 @@ private class FakeDevice(override val development: Boolean = true) : Platform {
         return evaluate(request.body)
     }
 
+    // Streams the client opened, newest last. A test plays the server's part
+    // on one; until it does, the stream is still connecting.
+    val streams = ArrayList<StreamEvents>()
+    val closedStreams = HashSet<StreamEvents>()
+
+    override fun openStream(url: String, events: StreamEvents): () -> Unit {
+        assertEquals("http://sdk.test/v1/stream?clientKey=fbc_test", url)
+        streams.add(events)
+        return { closedStreams.add(events) }
+    }
+
+    /** The server announces a new version on the newest stream. */
+    fun announce(version: Int) {
+        val stream = streams.last()
+        stream.line("event: version")
+        stream.line("data: {\"version\":$version}")
+        stream.line("")
+    }
+
     override fun debug(message: String) {}
     override fun warn(message: String) {
         warnings.add(message)
@@ -334,5 +353,120 @@ class ClientTest {
         assertEquals(3, byFlag.getValue("new-checkout").getInt("checkCount"))
         assertEquals("rollout", byFlag.getValue("new-checkout").getString("reason"))
         assertEquals("fallback", byFlag.getValue("not-a-flag").getString("reason"))
+    }
+
+    @Test
+    fun `with a stream open, a change the server announces arrives within two seconds, without polling`() {
+        val device = FakeDevice()
+        device.evaluate = { flags(1, "new-checkout" to false) }
+        val client = start(device)
+        device.streams.single().open()
+        // The server opens every stream by announcing the current version.
+        device.announce(1)
+
+        device.advance(5 * 60_000L)
+        val whileQuiet = device.fetches().size
+        device.evaluate = { flags(2, "new-checkout" to true) }
+        device.announce(2)
+        device.advance(2_000)
+
+        // No polling while the stream is open, then one fetch for the change.
+        assertEquals(1, whileQuiet)
+        assertEquals(2, device.fetches().size)
+        assertTrue(client.isEnabled("new-checkout", false))
+    }
+
+    @Test
+    fun `when the stream ends, polling takes over and the stream is reopened`() {
+        val device = FakeDevice()
+        start(device)
+        device.streams.single().open()
+        device.announce(1)
+        device.advance(2 * 60_000L)
+        val whileStreaming = device.fetches().size
+
+        device.streams.single().closed(null, null)
+        device.advance(9_000)
+        val beforeReconnect = device.streams.size
+        device.advance(31_000)
+        // Changes made while there was no stream weren't announced, so
+        // reopening it rechecks the flags.
+        val beforeReopen = device.fetches().size
+        device.streams.last().open()
+
+        assertEquals(1, whileStreaming)
+        assertEquals(1, beforeReconnect)
+        assertEquals(2, device.streams.size)
+        // One poll while there was no stream, then the catch-up on reopening.
+        assertEquals(2, beforeReopen)
+        assertEquals(3, device.fetches().size)
+    }
+
+    @Test
+    fun `a stream the server refuses isn't reopened, and polling carries on`() {
+        val device = FakeDevice()
+        start(device)
+
+        device.streams.single().closed(403, null)
+        device.advance(5 * 60_000L)
+
+        assertEquals(1, device.streams.size)
+        assertTrue(device.fetches().size > 5)
+    }
+
+    @Test
+    fun `a stream turned away for being over the limit waits out Retry-After`() {
+        val device = FakeDevice()
+        start(device)
+
+        device.streams.single().closed(429, "60")
+        device.advance(59_000)
+        val before = device.streams.size
+        device.advance(2_000)
+
+        assertEquals(1, before)
+        assertEquals(2, device.streams.size)
+    }
+
+    @Test
+    fun `five minutes in the background closes the stream, and coming back reopens it`() {
+        val device = FakeDevice()
+        val client = start(device)
+        device.streams.single().open()
+
+        client.background()
+        device.advance(4 * 60_000L)
+        val closedEarly = device.closedStreams.size
+        device.advance(60_000L)
+        val closedLater = device.closedStreams.size
+        client.resume()
+
+        assertEquals(0, closedEarly)
+        assertEquals(1, closedLater)
+        assertEquals(2, device.streams.size)
+    }
+
+    @Test
+    fun `a refused key leaves no stream open`() {
+        val device = FakeDevice()
+        device.evaluate = { flags(1) }
+        val client = start(device)
+        device.streams.single().open()
+        device.evaluate = { refused(401, "This SDK key isn't recognized.") }
+
+        client.sync {}
+        device.advance(5 * 60_000L)
+
+        assertEquals(1, device.streams.size)
+        assertEquals(1, device.closedStreams.size)
+    }
+
+    @Test
+    fun `a server key opens no stream`() {
+        val device = FakeDevice()
+
+        start(device, clientKey = "fbs_secret")
+
+        assertEquals(0, device.streams.size)
     }
 }

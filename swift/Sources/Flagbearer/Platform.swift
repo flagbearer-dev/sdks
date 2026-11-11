@@ -41,6 +41,17 @@ struct HTTPResponse {
     var retryAfter: String?
 }
 
+/// What a live-update stream reports, from whichever thread reads it.
+struct StreamEvents {
+    /// The server accepted the stream.
+    var open: () -> Void
+    /// One line of the stream, without its line ending.
+    var line: (String) -> Void
+    /// The stream ended. The status is the server's refusal, or nil if it had
+    /// opened or never connected.
+    var closed: (_ status: Int?, _ retryAfter: String?) -> Void
+}
+
 /// Where the anonymous ID and the last flags are kept between launches.
 protocol Storage {
     func get(_ key: String) -> String?
@@ -71,6 +82,11 @@ protocol Platform: AnyObject {
     func notify(_ task: @escaping () -> Void)
     /// Blocks until the server answers. Throws when it can't be reached.
     func post(url: String, headers: [String: String], body: Data, timeoutMs: Int) throws -> HTTPResponse
+
+    /// Opens the server's stream of flag changes and reads it until it ends or
+    /// goes silent. Returns a function that closes it; after that, no more
+    /// events arrive.
+    func openStream(url: String, events: StreamEvents) -> () -> Void
 
     func debug(_ message: String)
     func warn(_ message: String)

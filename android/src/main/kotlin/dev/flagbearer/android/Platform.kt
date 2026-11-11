@@ -24,6 +24,18 @@ internal class HttpResponse(
     val retryAfter: String? = null,
 )
 
+/** What a live-update stream reports, from whichever thread reads it. */
+internal interface StreamEvents {
+    /** The server accepted the stream. */
+    fun open()
+
+    /** One line of the stream, without its line ending. */
+    fun line(text: String)
+
+    /** The stream ended. [status] is the server's refusal, or null if it had opened or never connected. */
+    fun closed(status: Int?, retryAfter: String?)
+}
+
 /** Where the anonymous ID and the last flags are kept between launches. */
 internal interface Storage {
     fun get(key: String): String?
@@ -62,6 +74,13 @@ internal interface Platform {
 
     /** Blocks until the server answers. Throws IOException when it can't be reached. */
     fun post(url: String, headers: Map<String, String>, body: String, timeoutMs: Int): HttpResponse
+
+    /**
+     * Opens the server's stream of flag changes and reads it until it ends or
+     * goes silent. Returns a function that closes it; after that, no more
+     * events arrive.
+     */
+    fun openStream(url: String, events: StreamEvents): () -> Unit
 
     fun debug(message: String)
     fun warn(message: String)

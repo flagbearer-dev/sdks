@@ -14,7 +14,11 @@ private const val MAX_RETRY_MS = 30_000L
 // resume() refetches only when the last successful check is older than this.
 private const val RESUME_STALE_MS = 15_000L
 
-// In the background this long, the client stops polling until the app is back.
+// Spreads refetches out so a flag change doesn't hit the API all at once.
+private const val MAX_VERSION_REFRESH_DELAY_MS = 2000L
+
+// In the background this long, the client drops its stream and stops polling
+// until the app is back.
 private const val IDLE_HIDDEN_MS = 5 * 60_000L
 
 // Cached flags older than this are ignored, so a flag turned off doesn't stay
@@ -92,7 +96,8 @@ private fun parseSnapshot(body: String): Snapshot? {
 
 /**
  * The client's logic, with no Android in it: fetches a user's flags, keeps
- * them fresh by polling, caches them for the next launch, and reports checks.
+ * them fresh from the server's stream of changes (polling when there's no
+ * stream), caches them for the next launch, and reports checks.
  * Every change to its state happens on the platform's one state thread.
  */
 internal class Client(private val options: Options, private val platform: Platform) {
@@ -129,6 +134,24 @@ internal class Client(private val options: Options, private val platform: Platfo
     private var cancelPoll: (() -> Unit)? = null
     private var cancelRetry: (() -> Unit)? = null
     private var cancelHidden: (() -> Unit)? = null
+
+    // The live-update stream. While it's open, flags are fetched when it
+    // announces a change, and polling stops.
+    private var closeStream: (() -> Unit)? = null
+    private var streamId = 0
+    private var streaming = false
+    private var hasStreamed = false
+
+    // Set when the server refuses the stream outright. Polling carries on.
+    private var streamRefused = false
+    private var streamAttempt = 0
+    private var cancelStreamRetry: (() -> Unit)? = null
+    private var cancelVersionRefresh: (() -> Unit)? = null
+
+    // The newest version the stream has announced.
+    private var wantedVersion: Int? = null
+    private var eventName = "message"
+    private var eventData = ""
     private var anonymousId: String? = null
     private var anonymousIdLoaded = false
 
@@ -204,6 +227,7 @@ internal class Client(private val options: Options, private val platform: Platfo
         cancelHidden = null
         paused = false
         if (closed || blocked) return@run
+        connectStream()
         if (platform.now() - lastCheckedAt < RESUME_STALE_MS) {
             ensurePolling()
             return@run
@@ -220,13 +244,17 @@ internal class Client(private val options: Options, private val platform: Platfo
         ensurePolling()
     }
 
-    /** The app went to the background: upload what's pending, and stop polling if it stays there. */
+    /**
+     * The app went to the background: upload what's pending. If it stays
+     * there, drop the stream and stop polling until it's back.
+     */
     fun background() = platform.run {
         reporter.flush(null)
         cancelHidden?.invoke()
         cancelHidden = platform.schedule(IDLE_HIDDEN_MS) {
             cancelHidden = null
             paused = true
+            disconnectStream()
             cancelPoll?.invoke()
             cancelPoll = null
         }
@@ -236,7 +264,8 @@ internal class Client(private val options: Options, private val platform: Platfo
         if (closed) return@run
         closed = true
         listeners.clear()
-        for (cancel in listOf(cancelPoll, cancelRetry, cancelHidden)) cancel?.invoke()
+        for (cancel in listOf(cancelPoll, cancelRetry, cancelHidden, cancelVersionRefresh)) cancel?.invoke()
+        disconnectStream()
         inFlight?.forEach { it(FlagbearerException("Flagbearer client is closed")) }
         inFlight = null
         reporter.close()
@@ -260,6 +289,7 @@ internal class Client(private val options: Options, private val platform: Platfo
         }
         blocked = false
         refresh(done, manual = true)
+        connectStream()
         ensurePolling()
     }
 
@@ -296,7 +326,6 @@ internal class Client(private val options: Options, private val platform: Platfo
         val failure = result.exceptionOrNull()
         if (failure == null) {
             lastCheckedAt = platform.now()
-            retryAttempt = 0
             val snapshot = result.getOrNull()
             val known = view.version
             if (snapshot != null && (known == null || snapshot.version >= known)) {
@@ -309,6 +338,14 @@ internal class Client(private val options: Options, private val platform: Platfo
                 writeCache(view.user, snapshot)
                 debug("Snapshot applied")
             }
+            if (isBehindWantedVersion()) {
+                // The server answered with less than the stream announced:
+                // ask again later rather than spin.
+                scheduleRetry(null)
+            } else {
+                retryAttempt = 0
+            }
+            connectStream()
         } else {
             if (view.status == FlagsStatus.LOADING) publish(view.with(FlagsStatus.FAILED))
             if (failure is FlagbearerException && !failure.retryable) {
@@ -317,6 +354,7 @@ internal class Client(private val options: Options, private val platform: Platfo
                 blocked = true
                 cancelPoll?.invoke()
                 cancelPoll = null
+                disconnectStream()
                 platform.error(
                     "Flags have stopped updating and keep their current or default values until this is fixed. ${failure.message}",
                 )
@@ -347,7 +385,7 @@ internal class Client(private val options: Options, private val platform: Platfo
     }
 
     private fun ensurePolling() {
-        if (closed || blocked || paused || cancelPoll != null) return
+        if (closed || blocked || paused || streaming || cancelPoll != null) return
         val interval = (POLL_INTERVAL_MS * (0.9 + platform.random() * 0.2)).toLong()
         cancelPoll = platform.schedule(interval) {
             cancelPoll = null
@@ -356,7 +394,105 @@ internal class Client(private val options: Options, private val platform: Platfo
         }
     }
 
-    private fun scheduleRetry(failure: Throwable) {
+    private fun isBehindWantedVersion(): Boolean {
+        val wanted = wantedVersion ?: return false
+        val known = view.version
+        return known == null || known < wanted
+    }
+
+    private fun connectStream() {
+        if (closed || blocked || paused || streamRefused || keyProblem != null) return
+        if (closeStream != null || cancelStreamRetry != null) return
+        val id = ++streamId
+        eventName = "message"
+        eventData = ""
+        debug("Stream connecting")
+        val url = "$origin/v1/stream?clientKey=${java.net.URLEncoder.encode(options.clientKey, "UTF-8")}"
+        closeStream = platform.openStream(
+            url,
+            object : StreamEvents {
+                // Each stream's events are dropped once another has replaced it.
+                override fun open() = platform.run { if (id == streamId) onStreamOpen() }
+                override fun line(text: String) = platform.run { if (id == streamId) onStreamLine(text) }
+                override fun closed(status: Int?, retryAfter: String?) =
+                    platform.run { if (id == streamId) onStreamClosed(status, retryAfter) }
+            },
+        )
+    }
+
+    private fun disconnectStream() {
+        streamId++
+        closeStream?.invoke()
+        closeStream = null
+        cancelStreamRetry?.invoke()
+        cancelStreamRetry = null
+        if (streaming) debug("Stream closed")
+        streaming = false
+    }
+
+    private fun onStreamOpen() {
+        debug("Stream connected")
+        streaming = true
+        streamAttempt = 0
+        cancelPoll?.invoke()
+        cancelPoll = null
+        // Changes made while there was no stream weren't announced, so catch up.
+        if (hasStreamed) refresh(null, manual = false)
+        hasStreamed = true
+    }
+
+    // Server-Sent Events: "event:" and "data:" lines, then a blank line.
+    private fun onStreamLine(text: String) {
+        if (text.isEmpty()) {
+            if (eventName == "version") {
+                val version = runCatching { JSONObject(eventData).opt("version") as? Number }.getOrNull()
+                version?.toInt()?.takeIf { it >= 0 }?.let(::onVersion)
+            }
+            eventName = "message"
+            eventData = ""
+            return
+        }
+        if (text.startsWith(":")) return
+        val field = text.substringBefore(":")
+        val content = text.substringAfter(":", "").removePrefix(" ")
+        if (field == "event") eventName = content
+        if (field == "data" && eventData.length < 10_000) eventData += content
+    }
+
+    private fun onVersion(version: Int) {
+        wantedVersion = maxOf(wantedVersion ?: 0, version)
+        if (!isBehindWantedVersion() || cancelVersionRefresh != null) return
+        val delay = (platform.random() * MAX_VERSION_REFRESH_DELAY_MS).toLong()
+        cancelVersionRefresh = platform.schedule(delay) {
+            cancelVersionRefresh = null
+            if (isBehindWantedVersion()) refresh(null, manual = false)
+        }
+    }
+
+    private fun onStreamClosed(status: Int?, retryAfter: String?) {
+        closeStream = null
+        streaming = false
+        debug("Stream disconnected; using polling")
+        ensurePolling()
+        // A refusal that reconnecting can't fix. Polling still works, and the
+        // next fetch reports a bad key.
+        if (status != null && status in 400..499 && status != 408 && status != 429) {
+            streamRefused = true
+            return
+        }
+        if (closed || blocked || paused) return
+        // The server ends every stream after about half an hour; reconnecting
+        // after 5 to 15 seconds is what it asks of browsers too.
+        val base = minOf(60_000L, 5000L shl minOf(streamAttempt++, 4))
+        val wait = (retryAfter?.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0) * 1000
+        val delay = maxOf((base * (1 + platform.random() * 2)).toLong(), wait.toLong())
+        cancelStreamRetry = platform.schedule(delay) {
+            cancelStreamRetry = null
+            connectStream()
+        }
+    }
+
+    private fun scheduleRetry(failure: Throwable?) {
         val backoff = minOf(MAX_RETRY_MS, 1000L shl minOf(retryAttempt++, 5))
         val jittered = minOf(MAX_RETRY_MS, (backoff * (0.8 + platform.random() * 0.4)).toLong())
         val retryAfter = (failure as? FlagbearerException)?.retryAfterMs ?: 0

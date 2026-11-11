@@ -83,6 +83,25 @@ private final class FakeDevice: Platform, Storage {
         return try evaluate(json)
     }
 
+    // Streams the client opened, newest last. A test plays the server's part
+    // on one; until it does, the stream is still connecting.
+    var streams: [StreamEvents] = []
+    var closedStreams = 0
+
+    func openStream(url: String, events: StreamEvents) -> () -> Void {
+        XCTAssertEqual(url, "http://sdk.test/v1/stream?clientKey=fbc_test")
+        streams.append(events)
+        return { self.closedStreams += 1 }
+    }
+
+    /// The server announces a new version on the newest stream.
+    func announce(_ version: Int) {
+        let stream = streams[streams.count - 1]
+        stream.line("event: version")
+        stream.line("data: {\"version\":\(version)}")
+        stream.line("")
+    }
+
     func debug(_ message: String) {}
     func warn(_ message: String) { warnings.append(message) }
     func error(_ message: String) { errors.append(message) }
@@ -352,5 +371,113 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(byFlag["new-checkout"]?["checkCount"] as? Int, 3)
         XCTAssertEqual(byFlag["new-checkout"]?["reason"] as? String, "rollout")
         XCTAssertEqual(byFlag["not-a-flag"]?["reason"] as? String, "fallback")
+    }
+
+    func testWithAStreamOpenAChangeTheServerAnnouncesArrivesWithinTwoSecondsWithoutPolling() {
+        let device = FakeDevice()
+        device.evaluate = { _ in flags(1, ["new-checkout": false]) }
+        let client = start(device)
+        device.streams[0].open()
+        // The server opens every stream by announcing the current version.
+        device.announce(1)
+
+        device.advance(5 * 60_000)
+        let whileQuiet = device.fetches.count
+        device.evaluate = { _ in flags(2, ["new-checkout": true]) }
+        device.announce(2)
+        device.advance(2_000)
+
+        // No polling while the stream is open, then one fetch for the change.
+        XCTAssertEqual(whileQuiet, 1)
+        XCTAssertEqual(device.fetches.count, 2)
+        XCTAssertTrue(client.isEnabled("new-checkout", default: false))
+    }
+
+    func testWhenTheStreamEndsPollingTakesOverAndTheStreamIsReopened() {
+        let device = FakeDevice()
+        _ = start(device)
+        device.streams[0].open()
+        device.announce(1)
+        device.advance(2 * 60_000)
+        let whileStreaming = device.fetches.count
+
+        device.streams[0].closed(nil, nil)
+        device.advance(9_000)
+        let beforeReconnect = device.streams.count
+        device.advance(31_000)
+        // Changes made while there was no stream weren't announced, so
+        // reopening it rechecks the flags.
+        let beforeReopen = device.fetches.count
+        device.streams[device.streams.count - 1].open()
+
+        XCTAssertEqual(whileStreaming, 1)
+        XCTAssertEqual(beforeReconnect, 1)
+        XCTAssertEqual(device.streams.count, 2)
+        // One poll while there was no stream, then the catch-up on reopening.
+        XCTAssertEqual(beforeReopen, 2)
+        XCTAssertEqual(device.fetches.count, 3)
+    }
+
+    func testAStreamTheServerRefusesIsNotReopenedAndPollingCarriesOn() {
+        let device = FakeDevice()
+        _ = start(device)
+
+        device.streams[0].closed(403, nil)
+        device.advance(5 * 60_000)
+
+        XCTAssertEqual(device.streams.count, 1)
+        XCTAssertGreaterThan(device.fetches.count, 5)
+    }
+
+    func testAStreamTurnedAwayForBeingOverTheLimitWaitsOutRetryAfter() {
+        let device = FakeDevice()
+        _ = start(device)
+
+        device.streams[0].closed(429, "60")
+        device.advance(59_000)
+        let before = device.streams.count
+        device.advance(2_000)
+
+        XCTAssertEqual(before, 1)
+        XCTAssertEqual(device.streams.count, 2)
+    }
+
+    func testFiveMinutesInTheBackgroundClosesTheStreamAndComingBackReopensIt() {
+        let device = FakeDevice()
+        let client = start(device)
+        device.streams[0].open()
+
+        client.background()
+        device.advance(4 * 60_000)
+        let closedEarly = device.closedStreams
+        device.advance(60_000)
+        let closedLater = device.closedStreams
+        client.resume()
+
+        XCTAssertEqual(closedEarly, 0)
+        XCTAssertEqual(closedLater, 1)
+        XCTAssertEqual(device.streams.count, 2)
+    }
+
+    func testARefusedKeyLeavesNoStreamOpen() {
+        let device = FakeDevice()
+        device.evaluate = { _ in flags(1) }
+        let client = start(device)
+        device.streams[0].open()
+        device.evaluate = { _ in refused(401, "This SDK key isn't recognized.") }
+
+        client.sync { _ in }
+        device.advance(5 * 60_000)
+
+        XCTAssertEqual(device.streams.count, 1)
+        XCTAssertEqual(device.closedStreams, 1)
+    }
+
+    func testAServerKeyOpensNoStream() {
+        let device = FakeDevice()
+
+        _ = start(device, clientKey: "fbs_secret")
+
+        XCTAssertEqual(device.streams.count, 0)
     }
 }

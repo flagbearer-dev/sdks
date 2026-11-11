@@ -8,8 +8,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -31,7 +29,9 @@ private const val TAG = "Flagbearer"
  *
  * Flags load in the background and are kept on the device, so the next launch
  * starts with the flags the user last had, even offline. While the app is in
- * the foreground they're rechecked about every 30 seconds.
+ * the foreground, a change made in the dashboard arrives within a couple of
+ * seconds over a live connection; without one, flags are rechecked about
+ * every 30 seconds.
  *
  * @param url the Flagbearer SDK address. Only self-hosted setups change it.
  * @param user who flags are evaluated for. Call [identify] when it changes.
@@ -204,25 +204,12 @@ private class AndroidPlatform(private val app: Context) : Platform {
         headers: Map<String, String>,
         body: String,
         timeoutMs: Int,
-    ): HttpResponse {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        try {
-            connection.requestMethod = "POST"
-            connection.connectTimeout = timeoutMs
-            connection.readTimeout = timeoutMs
-            connection.instanceFollowRedirects = false
-            connection.useCaches = false
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json")
-            for ((name, value) in headers) connection.setRequestProperty(name, value)
-            connection.outputStream.use { it.write(body.toByteArray()) }
-            val status = connection.responseCode
-            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val text = stream?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-            return HttpResponse(status, text, connection.getHeaderField("Retry-After"))
-        } finally {
-            connection.disconnect()
-        }
+    ): HttpResponse = httpPost(url, headers, body, timeoutMs)
+
+    override fun openStream(url: String, events: StreamEvents): () -> Unit {
+        val stream = EventStream(url, events)
+        Thread(stream, "flagbearer-stream").apply { isDaemon = true }.start()
+        return stream::close
     }
 
     override fun debug(message: String) {

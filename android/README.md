@@ -2,7 +2,7 @@
 
 The Flagbearer SDK for Android apps, written in Kotlin. It fetches the current
 user's flags with a public client key, keeps them on the device so the next
-launch works offline, and rechecks them while the app is in the foreground.
+launch works offline, and picks up changes within seconds while the app is in the foreground.
 Requires Android 6.0 (API 23) or later and has no dependencies.
 
 Server-side Kotlin and Java use [`dev.flagbearer:flagbearer`](../java) instead,
@@ -24,8 +24,9 @@ in `local.properties`). From this directory:
 
 The client's logic is in `Client.kt` and has no Android in it: `Platform.kt`
 describes what it needs from the device, and the tests stand in for that with a
-fake clock, network and storage. `Flagbearer.kt` is the public class and the
-real Android implementation.
+fake clock, network and storage. `Http.kt` is the real network code, tested
+against a local HTTP server. `Flagbearer.kt` is the public class and the rest
+of the real Android implementation.
 
 ## Releasing
 

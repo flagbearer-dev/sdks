@@ -2,8 +2,8 @@
 
 The Flagbearer SDK for iOS and other Apple platforms, written in Swift. It
 fetches the current user's flags with a public client key, keeps them on the
-device so the next launch works offline, and rechecks them while the app is in
-the foreground. Requires iOS 15, macOS 12, tvOS 15 or watchOS 8, and has no
+device so the next launch works offline, and picks up changes within seconds
+while the app is in the foreground. Requires iOS 15, macOS 12, tvOS 15 or watchOS 8, and has no
 dependencies.
 
 ## Docs

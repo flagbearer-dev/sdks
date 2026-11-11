@@ -18,7 +18,9 @@ let flagbearerSDKVersion = "1.0.0"
 ///
 /// Flags load in the background and are kept on the device, so the next launch
 /// starts with the flags the user last had, even offline. While the app is in
-/// the foreground they're rechecked about every 30 seconds.
+/// the foreground, a change made in the dashboard arrives within a couple of
+/// seconds over a live connection; without one, flags are rechecked about
+/// every 30 seconds.
 public final class Flagbearer: @unchecked Sendable {
     private let client: Client
     private var observers: [NSObjectProtocol] = []
@@ -123,6 +125,81 @@ public final class Flagbearer: @unchecked Sendable {
     }
 }
 
+// Reads the server's stream of flag changes, a line at a time, until it
+// ends, fails, goes silent or is closed.
+private final class EventStream: NSObject, URLSessionDataDelegate {
+    private let events: StreamEvents
+    private let lock = NSLock()
+    private var session: URLSession?
+    private var closed = false
+    private var status: Int?
+    private var retryAfter: String?
+    private var buffer = Data()
+
+    init(events: StreamEvents) {
+        self.events = events
+    }
+
+    func start(_ url: URL) {
+        let configuration = URLSessionConfiguration.ephemeral
+        // The server pings every 15 seconds, so this is three missed pings.
+        configuration.timeoutIntervalForRequest = 45
+        configuration.timeoutIntervalForResource = 24 * 3600
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+        self.session = session
+        var request = URLRequest(url: url)
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        session.dataTask(with: request).resume()
+    }
+
+    func close() {
+        lock.lock()
+        closed = true
+        lock.unlock()
+        session?.invalidateAndCancel()
+    }
+
+    private var isClosed: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return closed
+    }
+
+    func urlSession(
+        _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if code == 200 {
+            if !isClosed { events.open() }
+            completionHandler(.allow)
+        } else {
+            status = code
+            retryAfter = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After")
+            completionHandler(.cancel)
+        }
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        buffer.append(data)
+        while let end = buffer.firstIndex(of: 0x0A) {
+            var line = buffer[buffer.startIndex..<end]
+            if line.last == 0x0D { line = line.dropLast() }
+            let text = String(decoding: line, as: UTF8.self)
+            buffer.removeSubrange(buffer.startIndex...end)
+            if !isClosed { events.line(text) }
+        }
+        // A stream with no line endings isn't ours; don't let it grow.
+        if buffer.count > 100_000 { session.invalidateAndCancel() }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        session.finishTasksAndInvalidate()
+        if !isClosed { events.closed(status, retryAfter) }
+    }
+}
+
 private struct DefaultsStorage: Storage {
     // Its own suite, so the app's own defaults aren't touched.
     let defaults = UserDefaults(suiteName: "dev.flagbearer") ?? .standard
@@ -193,6 +270,16 @@ private final class ApplePlatform: Platform {
         }.resume()
         finished.wait()
         return try result.get()
+    }
+
+    func openStream(url: String, events: StreamEvents) -> () -> Void {
+        guard let address = URL(string: url) else {
+            events.closed(nil, nil)
+            return {}
+        }
+        let stream = EventStream(events: events)
+        stream.start(address)
+        return stream.close
     }
 
     func debug(_ message: String) { NSLog("[Flagbearer] %@", message) }
