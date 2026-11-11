@@ -1,6 +1,6 @@
 [package]
 name = "flagbearer"
-version = "0.1.1"
+version = "1.0.0"
 edition = "2021"
 rust-version = "1.85"
 description = "Flagbearer server SDK: check feature flags locally, kept current over a stream"

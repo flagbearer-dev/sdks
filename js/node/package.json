@@ -1,6 +1,6 @@
 {
   "name": "@flagbearer/node",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Flagbearer Node.js SDK",
   "license": "MIT",
   "homepage": "https://flagbearer.dev",

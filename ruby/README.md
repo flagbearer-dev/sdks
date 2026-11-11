@@ -39,7 +39,7 @@ required):
 
 ```sh
 gem build flagbearer.gemspec
-gem push flagbearer-0.1.0.gem
+gem push flagbearer-1.0.0.gem
 ```
 
 RubyGems versions can't be reused, so bump the version for every release.

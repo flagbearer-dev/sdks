@@ -12,7 +12,7 @@
 namespace flagbearer {
 
 // The SDK's version, sent with exposure reports.
-inline constexpr const char* kVersion = "0.1.0";
+inline constexpr const char* kVersion = "1.0.0";
 
 // The production SDK address.
 inline constexpr const char* kDefaultUrl = "https://sdk.flagbearer.dev";

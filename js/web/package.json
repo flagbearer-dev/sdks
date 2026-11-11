@@ -1,6 +1,6 @@
 {
   "name": "@flagbearer/web",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "Flagbearer browser SDK",
   "license": "MIT",
   "homepage": "https://flagbearer.dev",

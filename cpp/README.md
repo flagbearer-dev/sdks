@@ -36,7 +36,7 @@ CMake:
 include(FetchContent)
 FetchContent_Declare(flagbearer
   GIT_REPOSITORY https://github.com/<public repo>.git
-  GIT_TAG sdk-cpp/v0.1.0
+  GIT_TAG sdk-cpp/v1.0.0
   SOURCE_SUBDIR cpp)
 FetchContent_MakeAvailable(flagbearer)
 ```

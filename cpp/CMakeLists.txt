@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(flagbearer VERSION 0.1.0 LANGUAGES CXX)
+project(flagbearer VERSION 1.0.0 LANGUAGES CXX)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   set(FLAGBEARER_TOP_LEVEL ON)
