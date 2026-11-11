@@ -29,8 +29,8 @@ Go modules are published by git tag, not uploaded. Bump `Version` in
 `version.go`, merge, then tag the commit with the module's directory prefix:
 
 ```sh
-git tag go/v1.0.0
-git push origin go/v1.0.0
+git tag go/v<version>
+git push origin go/v<version>
 ```
 
 `go get` fetches the module straight from the repository, so the repository
