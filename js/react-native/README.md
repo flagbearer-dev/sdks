@@ -29,8 +29,10 @@ had, even offline. Any store with `getItem`, `setItem` and `removeItem` works.
 
 The client is shared with `@flagbearer/web` through the internal
 `@flagbearer/sdk-core` package. This SDK supplies the React Native pieces:
-`AppState` for foreground and background. React Native has no `EventSource`, so
-flag changes arrive by polling, about every 30 seconds.
+`AppState` for foreground and background, and a reader for the server's stream
+of flag changes. React Native has no `EventSource`, so `src/stream.ts` reads the
+stream through `XMLHttpRequest`. Without a stream, flag changes arrive by
+polling, about every 30 seconds.
 
 From the repository root:
 

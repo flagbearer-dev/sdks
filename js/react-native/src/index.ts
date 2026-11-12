@@ -2,6 +2,7 @@ import { AppState } from "react-native";
 
 import { createClient } from "@flagbearer/sdk-core";
 
+import { openStream } from "./stream";
 import { SDK_VERSION } from "./version";
 
 // Public types are declared here, not imported, so the published declarations
@@ -56,8 +57,8 @@ export type Client = {
   close(): void;
 };
 
-// React Native has no EventSource, so flag changes arrive with the next poll,
-// about every 30 seconds.
+// Flag changes arrive over a live stream. Without one, they arrive with the
+// next poll, about every 30 seconds.
 export function init(options: ClientOptions): Client {
   return createClient(options, {
     sdk: "react-native",
@@ -65,6 +66,7 @@ export function init(options: ClientOptions): Client {
     background: true,
     development: typeof __DEV__ !== "undefined" && __DEV__,
     cacheFlags: true,
+    openStream: typeof XMLHttpRequest === "undefined" ? undefined : openStream,
     watchLifecycle({ resume, hide, leave }) {
       // "inactive" is brief, like the iOS app switcher, so it changes nothing.
       const subscription = AppState.addEventListener("change", (state) => {
