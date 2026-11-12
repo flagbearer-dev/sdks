@@ -14,7 +14,7 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Authors>Flagbearer</Authors>
     <Description>Flagbearer .NET server SDK: download an environment's rules once and check feature flags locally.</Description>
-    <PackageTags>feature-flags;flagbearer</PackageTags>
+    <PackageTags>feature-flags;feature-toggles;gradual-rollouts;flagbearer</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://flagbearer.dev</PackageProjectUrl>
     <RepositoryUrl>https://github.com/flagbearer-dev/sdks</RepositoryUrl>

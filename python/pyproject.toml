@@ -1,13 +1,13 @@
 [project]
 name = "flagbearer-dev"
 dynamic = ["version"]
-description = "Flagbearer Python SDK"
+description = "Feature flags for Python: checked locally, with gradual rollouts and live updates, from Flagbearer."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = []
-keywords = ["feature-flags", "flagbearer"]
+keywords = ["feature-flags", "feature-toggles", "gradual-rollouts", "flagbearer"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Typed",

@@ -5,7 +5,7 @@ require_relative "lib/flagbearer/version"
 Gem::Specification.new do |spec|
   spec.name = "flagbearer"
   spec.version = Flagbearer::VERSION
-  spec.summary = "Flagbearer Ruby SDK"
+  spec.summary = "Feature flags for Ruby, from Flagbearer"
   spec.description = "Check Flagbearer feature flags locally on the server: rules stream in, checks never wait on the network."
   spec.authors = ["Flagbearer"]
   spec.license = "MIT"

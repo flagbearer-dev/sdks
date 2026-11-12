@@ -1,7 +1,7 @@
 {
   "name": "@flagbearer/node",
   "version": "1.0.0",
-  "description": "Flagbearer Node.js SDK",
+  "description": "Feature flags for Node.js: checked locally, with gradual rollouts and live updates, from Flagbearer.",
   "license": "MIT",
   "homepage": "https://flagbearer.dev",
   "repository": {
@@ -11,7 +11,10 @@
   },
   "keywords": [
     "feature-flags",
-    "flagbearer"
+    "feature-toggles",
+    "gradual-rollouts",
+    "flagbearer",
+    "nodejs"
   ],
   "engines": {
     "node": ">=22"

@@ -1,7 +1,7 @@
 {
   "name": "@flagbearer/react-native",
   "version": "1.0.0",
-  "description": "Flagbearer React Native SDK",
+  "description": "Feature flags for React Native: gradual rollouts, live updates and flags that work offline, from Flagbearer.",
   "license": "MIT",
   "homepage": "https://flagbearer.dev",
   "repository": {
@@ -11,6 +11,8 @@
   },
   "keywords": [
     "feature-flags",
+    "feature-toggles",
+    "gradual-rollouts",
     "flagbearer",
     "react-native"
   ],

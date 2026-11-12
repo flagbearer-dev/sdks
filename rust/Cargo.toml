@@ -9,7 +9,7 @@ homepage = "https://flagbearer.dev"
 repository = "https://github.com/flagbearer-dev/sdks"
 documentation = "https://docs.flagbearer.dev/sdks/rust"
 readme = "README.md"
-keywords = ["feature-flags", "flagbearer"]
+keywords = ["feature-flags", "feature-toggles", "gradual-rollouts", "flagbearer"]
 categories = ["config", "development-tools"]
 exclude = ["package.json"]
 

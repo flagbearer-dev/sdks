@@ -24,7 +24,7 @@ mavenPublishing {
     coordinates("dev.flagbearer", "flagbearer", version.toString())
     pom {
         name = "Flagbearer"
-        description = "The Flagbearer server SDK for Java and Kotlin."
+        description = "Feature flags for Java and Kotlin servers: checked locally, with gradual rollouts and live updates, from Flagbearer."
         url = "https://docs.flagbearer.dev/sdks/java"
         licenses {
             license {

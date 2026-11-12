@@ -1,7 +1,7 @@
 {
   "name": "@flagbearer/web",
   "version": "1.0.0",
-  "description": "Flagbearer browser SDK",
+  "description": "Feature flags for the browser and React: gradual rollouts and live updates, from Flagbearer.",
   "license": "MIT",
   "homepage": "https://flagbearer.dev",
   "repository": {
@@ -11,7 +11,11 @@
   },
   "keywords": [
     "feature-flags",
-    "flagbearer"
+    "feature-toggles",
+    "gradual-rollouts",
+    "flagbearer",
+    "browser",
+    "react"
   ],
   "type": "module",
   "main": "./dist/index.js",
