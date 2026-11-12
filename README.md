@@ -1,5 +1,7 @@
 # Flagbearer SDKs
 
+[![mcptry](https://mcptry.com/badge/dev.flagbearer/flagbearer)](https://mcptry.com/servers/dev.flagbearer/flagbearer)
+
 Official SDKs for [Flagbearer](https://flagbearer.dev) feature flags. Server SDKs
 download an environment's rules once and check flags locally, so a flag check
 never waits on the network. Docs for each are at
