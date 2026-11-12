@@ -1,6 +1,6 @@
 {
   "name": "@flagbearer/node",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Feature flags for Node.js: checked locally, with gradual rollouts and live updates, from Flagbearer.",
   "license": "MIT",
   "homepage": "https://flagbearer.dev",

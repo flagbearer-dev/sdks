@@ -230,7 +230,7 @@ public sealed class ClientTests : IAsyncLifetime
         foreach (var upload in uploads)
         {
             Assert.Equal("dotnet", upload.GetProperty("sdk").GetString());
-            Assert.Equal("1.0.0", upload.GetProperty("sdkVersion").GetString());
+            Assert.Equal("1.0.1", upload.GetProperty("sdkVersion").GetString());
             Assert.Equal("build-7", upload.GetProperty("appVersion").GetString());
         }
         var first = byUser["user-1"];

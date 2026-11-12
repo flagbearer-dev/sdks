@@ -1,6 +1,6 @@
 {
   "name": "@flagbearer/web",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Feature flags for the browser and React: gradual rollouts and live updates, from Flagbearer.",
   "license": "MIT",
   "homepage": "https://flagbearer.dev",
